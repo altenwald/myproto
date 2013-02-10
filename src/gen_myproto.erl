@@ -4,7 +4,8 @@
 
 -callback check_pass(
 	User::binary(), 
-	Hash::binary()
+	Hash::binary(),
+	Password::binary()
 ) -> 
 	binary() | 
 	{error, Reason::binary()}.
