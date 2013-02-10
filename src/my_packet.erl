@@ -1,6 +1,6 @@
 -module(my_packet).
 
--export([encode/1, encode/2, decode/1, decode_auth/1]).
+-export([encode/1, decode/1, decode_auth/1]).
 
 -include("../include/myproto.hrl").
 
@@ -42,6 +42,11 @@ encode(#response{
 encode(#response{
         status=?STATUS_HELLO, id=Id, info=Hash
     }) ->
+    ServerSign = case application:get_env(myproto, server_sign) of
+        {ok, SS} when is_binary(SS) -> SS;
+        {ok, SS} when is_list(SS) -> list_to_binary(SS);
+        undefined -> ?SERVER_SIGN
+    end,
     Caps = 
         ?CLIENT_PLUGIN_AUTH bor %% PLAIN AUTH
         ?CLIENT_PROTOCOL_41 bor %% PROTOCOL 4.1
@@ -56,17 +61,16 @@ encode(#response{
         0,
     Charset = ?UTF8_GENERAL_CI,
     Info = <<
-        ?SERVER_SIGN, 0:8, Id:32/little, 
+        ServerSign/binary, 0:8, Id:32/little, 
         Auth1/binary, 0:8, CapsLow:16/little,
         Charset:8, StatusFlags:16/little, 
         CapsUp:16/little, LenAuth:8, 0:80,
         Auth2/binary, 0:8, "mysql_native_password", 0:8
     >>,
     Length = byte_size(Info) + 1,
-    << Length:24/little, 0:8, ?STATUS_HELLO:8, Info/binary >>.
+    << Length:24/little, 0:8, ?STATUS_HELLO:8, Info/binary >>;
 
-
-encode(Cols, Rows) ->
+encode({Cols, Rows}) ->
     %% Column account
     ColLen = length(Cols),
     Head = <<1:24/little, 1:8, ColLen:8>>,
@@ -127,7 +131,7 @@ decode_auth(<<
     _Length:24/little, 1:8, Caps:32/little, _MaxPackSize:32/little, Charset:8, 
     _Reserved:23/binary, Info/binary
 >>) ->
-    [User, <<20:8, Password:20/binary, PlugIn/binary>>, _Empty] = binary:split(Info, <<0>>, [global]),
+    [User, <<20:8, Password:20/binary, PlugIn/binary>>] = binary:split(Info, <<0>>),
     UserData = #user{
         name=User, 
         password=Password, 

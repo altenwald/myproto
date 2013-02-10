@@ -10,7 +10,9 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    myproto_sup:start_link().
+	{ok, Port} = application:get_env(myproto, port),
+	{ok, Handler} = application:get_env(myproto, handler),
+    myproto_sup:start_link(Port, Handler).
 
 stop(_State) ->
     ok.

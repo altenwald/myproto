@@ -1,4 +1,4 @@
--define(SERVER_SIGN, "5.5.29-datahub").
+-define(SERVER_SIGN, "5.5-myproto").
 
 %% status flags
 -define(SERVER_STATUS_IN_TRANS, 16#0001).
