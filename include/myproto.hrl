@@ -1,3 +1,5 @@
+-define(SERVER_SIGN, "5.5.29-datahub").
+
 %% status flags
 -define(SERVER_STATUS_IN_TRANS, 16#0001).
 -define(SERVER_STATUS_AUTOCOMMIT, 16#0002).
@@ -44,9 +46,11 @@
 -define(COM_STMT_FETCH, 28).
 -define(COM_DAEMON, 29).
 -define(COM_BINLOG_DUMP_GTID, 30).
+-define(COM_AUTH, auth).
 
 % response status
 -define(STATUS_OK, 0).
+-define(STATUS_HELLO, 16#0A).
 -define(STATUS_EOF, 16#FE).
 -define(STATUS_ERR, 16#FF).
 
@@ -79,9 +83,56 @@
 -define(TYPE_STRING, 16#fe).
 -define(TYPE_GEOMETRY, 16#ff).
 
+% charsets
+-define(BIG5_CHINESE_CI, 1).
+-define(LATIN2_CZECH_CS, 2).
+-define(DEC8_SWEDISH_CI, 3).
+-define(CP850_GENERAL_CI, 4).
+-define(LATIN1_GERMAN1_CI, 5).
+-define(HP8_ENGLISH_CI, 6).
+-define(KOI8R_GENERAL_CI, 7).
+-define(LATIN1_SWEDISH_CI, 8).
+-define(LATIN2_GENERAL_CI, 9).
+-define(SWE7_SWEDISH_CI, 10).
+-define(UTF8_GENERAL_CI, 33).
+-define(BINARY, 63).
+
+% capabilities
+-define(CLIENT_LONG_PASSWORD, 1).
+-define(CLIENT_FOUND_ROWS, 2).
+-define(CLIENT_LONG_FLAG, 4).
+-define(CLIENT_CONNECT_WITH_DB, 8).
+-define(CLIENT_NO_SCHEMA, 16#10).
+-define(CLIENT_COMPRESS, 16#20).
+-define(CLIENT_ODBC, 16#40).
+-define(CLIENT_LOCAL_FILES, 16#80).
+-define(CLIENT_IGNORE_SPACE, 16#100).
+-define(CLIENT_PROTOCOL_41, 16#200).
+-define(CLIENT_INTERACTIVE, 16#400).
+-define(CLIENT_SSL, 16#800).
+-define(CLIENT_IGNORE_SIGPIPE, 16#1000).
+-define(CLIENT_TRANSACTIONS, 16#2000).
+-define(CLIENT_RESERVED, 16#4000).
+-define(CLIENT_SECURE_CONNECTION, 16#8000).
+-define(CLIENT_MULTI_STATEMENTS, 16#10000).
+-define(CLIENT_MULTI_RESULTS, 16#20000).
+-define(CLIENT_PS_MULTI_RESULTS, 16#40000).
+-define(CLIENT_PLUGIN_AUTH, 16#80000).
+-define(CLIENT_CONNECT_ATTRS, 16#100000).
+-define(CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA, 16#200000).
+
+
 -record(request, {
 	command :: integer(),
 	info :: string()
+}).
+
+-record(user, {
+	name :: binary(),
+	password :: binary(),
+	capabilities :: integer(),
+	plugin :: binary(),
+	charset :: binary()
 }).
 
 -record(response, {
@@ -97,10 +148,10 @@
 }).
 
 -record(column, {
-	schema :: binary(),
-	table :: binary(),
+	schema = <<"">> :: binary(),
+	table = <<"">> :: binary(),
 	name :: binary(),
-	charset :: integer(),
+	charset = ?UTF8_GENERAL_CI :: integer(),
 	length :: integer(),
 	type :: integer(),
 	flags = 0 :: integer(),

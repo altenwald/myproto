@@ -1,18 +1,25 @@
 -module(my_datatypes).
 
 -export([
+	binary_to_varchar/1,
 	fix_integer_to_number/2, number_to_fix_integer/2,
 	var_integer_to_number/1, number_to_var_integer/1
 ]).
 
 -include("../include/myproto.hrl").
 
+%% Varchars
+
+binary_to_varchar(Binary) ->
+	Len = number_to_var_integer(byte_size(Binary)),
+	<<Len/binary, Binary/binary>>.
+
 %% Fix Integers
 
 fix_integer_to_number(Size, Data) when is_integer(Size) andalso is_integer(Data) ->
 	BitSize = Size * 8,
-	<<Data:BitSize/little>>,
-	Data.
+	<<Num:BitSize/little>> = Data,
+	Num.
 
 number_to_fix_integer(Size, Data) when is_integer(Size) andalso is_binary(Data) ->
 	BitSize = Size * 8,

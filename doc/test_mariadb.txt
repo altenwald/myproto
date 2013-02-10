@@ -1,0 +1,24 @@
+Length  66 00 00 (102)
+Id      00 
+HELLO   0a 
+Sign    35 2e 35 2e 32 39 2d 4d 61 72 69    
+         5  .  5  .  2  9  -  M  a  r  i
+        61 44 42 2d 6d 61 72 69 61 64 62 31 7e 77 68 65    
+         a  D  B  -  m  a  r  i  a  d  b  1  ~  w  h  e
+        65 7a 79 2d 6c 6f 67 00
+         e  z  y  -  l  o  g
+Id      24 00 00 00
+Auth1   50 44 40 55 68 30 51 2b 
+Filler  00
+CapsLow ff f7 
+Charset 08
+StatusF 02 00
+CapsUp  0f a0 
+LenAuth 15 (21 = 8+13)
+Reserv  00 00 00 00 00 00 00 00 00 00 
+Auth2   21 62 4e 3c 24 3f 4d 47 5c 77 61 63 00 
+AuthNam 6d 79 73 71 6c 5f 6e 61 74 69 76 65    
+         m  y  s  q  l  _  n  a  t  i  v  e
+        5f 70 61 73 73 77 6f 72 64 00
+         _  p  a  s  s  w  o  r  d 
+
