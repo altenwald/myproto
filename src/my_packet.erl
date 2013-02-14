@@ -141,5 +141,7 @@ decode_auth(<<
     },
     #request{command=?COM_AUTH, info=UserData}.
 
-decode(<<_Length:24/little, _Id:8, Command:8, Info/binary>>) ->
-    #request{command=Command, info=Info}.
+decode(<<16#ffffff:24/little, Id:8, Command:8, Info/binary>>) ->
+    #request{command=Command, id=Id, info=Info, continue=true};
+decode(<<_Length:24/little, Id:8, Command:8, Info/binary>>) ->
+    #request{command=Command, id=Id, info=Info, continue=false}.

@@ -19,7 +19,7 @@ start_link(Port, Handler) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [Port, Handler], []).
  
 init([Port, Handler]) ->
-    Opts = [binary, {packet, 0}, {active, true}],
+    Opts = [binary, {packet, 0}, {active, true}, {reuseaddr, true}],
     case gen_tcp:listen(Port, Opts) of
         {ok, LSocket} ->
             {ok, #state{lsocket=LSocket, id=1, handler=Handler}, 0};

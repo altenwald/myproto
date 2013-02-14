@@ -124,7 +124,9 @@
 
 -record(request, {
 	command :: integer(),
-	info :: string()
+	info :: string(),
+	continue = false :: boolean(),
+	id = 0 :: integer()
 }).
 
 -record(user, {

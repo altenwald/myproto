@@ -15,7 +15,8 @@
     socket  :: gen_tcp:socket(), %% TCP connection
     id      :: integer(),        %% connection id
     hash    :: binary(),         %% hash for auth
-    handler :: atom()            %% Handler for auth/queries
+    handler :: atom(),           %% Handler for auth/queries
+    packet = <<"">> :: binary()  %% Received packet
 }).
 
 %% API
@@ -102,13 +103,18 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
             {stop, normal, StateData}
     end;
 
-handle_info({tcp,_Port,Info}, normal, #state{socket=Socket,handler=Handler}=StateData) ->
-    Request = my_packet:decode(Info),
-    lager:info("Received: ~p~n", [Request]),
-    gen_tcp:send(Socket, my_packet:encode(
-        Handler:execute(Request)
-    )),
-    {next_state, normal, StateData};
+handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet=Packet}=StateData) ->
+    case my_packet:decode(Msg) of
+        #request{continue=true, info=Info}=Request ->
+            lager:info("Received (partial): ~p~n", [Request]),
+            {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
+        #request{continue=false, info=Info}=Request ->
+            lager:info("Received: ~p~n", [Request]),
+            gen_tcp:send(Socket, my_packet:encode(
+                Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>})
+            )),
+            {next_state, normal, StateData#state{packet = <<"">>}}
+    end;
 
 handle_info({tcp_closed, _Socket}, _StateName, #state{id=Id}=StateData) ->
     lager:info("Connection ID#~w closed~n", [Id]),
