@@ -1,12 +1,20 @@
 -module(my_datatypes).
 
 -export([
+	string_nul_to_binary/1,
 	binary_to_varchar/1,
 	fix_integer_to_number/2, number_to_fix_integer/2,
 	var_integer_to_number/1, number_to_var_integer/1
 ]).
 
 -include("../include/myproto.hrl").
+
+%% String.NUL
+
+string_nul_to_binary(String) ->
+	list_to_binary(lists:takewhile(fun(X) ->
+		X =/= 0
+	end, binary_to_list(String))).
 
 %% Varchars
 

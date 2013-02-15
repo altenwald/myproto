@@ -27,6 +27,29 @@ encode(#response{
     Length = byte_size(Info) + 3,
     <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, Info/binary>>;
 encode(#response{
+        status=?STATUS_OK, id=Id, info={Cols, Rows}
+    }) ->
+    %% Column account
+    ColLen = length(Cols),
+    Head = <<1:24/little, Id:8, ColLen:8>>,
+    %% columns
+    {IdEof, ColsBin} = encode_column(Cols, 2),
+    %% eof
+    ColsEof = encode(#response{
+        status=?STATUS_EOF, 
+        id=IdEof, 
+        status_flags=?SERVER_STATUS_AUTOCOMMIT
+    }),
+    %% rows
+    {IdEnd, RowsPack} = encode_row(Rows, IdEof+1),
+    %% eof
+    RowsEof = encode(#response{
+        status=?STATUS_EOF,
+        id=IdEnd,
+        status_flags=?SERVER_STATUS_AUTOCOMMIT
+    }),
+    <<Head/binary, ColsBin/binary, ColsEof/binary, RowsPack/binary, RowsEof/binary>>;
+encode(#response{
         status=?STATUS_OK, id=Id, info = Info,
         affected_rows = AffectedRows, last_insert_id = LastInsertId,
         status_flags = StatusFlags, warnings = Warnings
@@ -68,29 +91,7 @@ encode(#response{
         Auth2/binary, 0:8, "mysql_native_password", 0:8
     >>,
     Length = byte_size(Info) + 1,
-    << Length:24/little, 0:8, ?STATUS_HELLO:8, Info/binary >>;
-
-encode({Cols, Rows}) ->
-    %% Column account
-    ColLen = length(Cols),
-    Head = <<1:24/little, 1:8, ColLen:8>>,
-    %% columns
-    {IdEof, ColsBin} = encode_column(Cols, 2),
-    %% eof
-    ColsEof = encode(#response{
-        status=?STATUS_EOF, 
-        id=IdEof, 
-        status_flags=?SERVER_STATUS_AUTOCOMMIT
-    }),
-    %% rows
-    {IdEnd, RowsPack} = encode_row(Rows, IdEof+1),
-    %% eof
-    RowsEof = encode(#response{
-        status=?STATUS_EOF,
-        id=IdEnd,
-        status_flags=?SERVER_STATUS_AUTOCOMMIT
-    }),
-    <<Head/binary, ColsBin/binary, ColsEof/binary, RowsPack/binary, RowsEof/binary>>.
+    << Length:24/little, 0:8, ?STATUS_HELLO:8, Info/binary >>.
 
 encode_column(Cols, Id) when is_list(Cols) ->
     lists:foldl(fun(Col, {NewId, Data}) ->
@@ -141,7 +142,23 @@ decode_auth(<<
     },
     #request{command=?COM_AUTH, info=UserData}.
 
+decode(<<_Length:24/little, Id:8, ?COM_FIELD_LIST:8, Info/binary>>) ->
+    #request{
+        command=?COM_FIELD_LIST, 
+        id=Id, 
+        info=my_datatypes:string_nul_to_binary(Info)
+    };
 decode(<<16#ffffff:24/little, Id:8, Command:8, Info/binary>>) ->
-    #request{command=Command, id=Id, info=Info, continue=true};
+    #request{
+        command=Command,
+        id=Id,
+        info=Info, 
+        continue=true
+    };
 decode(<<_Length:24/little, Id:8, Command:8, Info/binary>>) ->
-    #request{command=Command, id=Id, info=Info, continue=false}.
+    #request{
+        command=Command,
+        id=Id,
+        info=Info,
+        continue=false
+    }.

@@ -108,10 +108,12 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
         #request{continue=true, info=Info}=Request ->
             lager:info("Received (partial): ~p~n", [Request]),
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
-        #request{continue=false, info=Info}=Request ->
+        #request{continue=false, id=Id, info=Info}=Request ->
             lager:info("Received: ~p~n", [Request]),
+            Response = Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>}),
+            lager:info("Response: ~p~n", [Response]),
             gen_tcp:send(Socket, my_packet:encode(
-                Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>})
+                Response#response{id = Id+1}
             )),
             {next_state, normal, StateData#state{packet = <<"">>}}
     end;
