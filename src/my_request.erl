@@ -111,12 +111,12 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
         #request{continue=false, id=Id, info=Info}=Request ->
             lager:info("Received: ~p~n", [Request]),
-            {Response,HandlerState} = Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>}, HandlerState),
+            {Response, NewHandlerState} = Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>}, HandlerState),
             lager:info("Response: ~p~n", [Response]),
             gen_tcp:send(Socket, my_packet:encode(
                 Response#response{id = Id+1}
             )),
-            {next_state, normal, StateData#state{packet = <<"">>,handler_state=HandlerState}}
+            {next_state, normal, StateData#state{packet = <<"">>,handler_state=NewHandlerState}}
     end;
 
 handle_info({tcp_closed, _Socket}, _StateName, #state{id=Id}=StateData) ->
