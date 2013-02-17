@@ -16,7 +16,8 @@
     id      :: integer(),        %% connection id
     hash    :: binary(),         %% hash for auth
     handler :: atom(),           %% Handler for auth/queries
-    packet = <<"">> :: binary()  %% Received packet
+    packet = <<"">> :: binary(), %% Received packet
+    handler_state
 }).
 
 %% API
@@ -83,14 +84,14 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
     }} = my_packet:decode_auth(Info),
     lager:debug("Hash=~p; Pass=~p~n", [to_hex(Hash),to_hex(Password)]),
     case Handler:check_pass(User, Hash, Password) of
-        Password ->
+        {ok, Password, HandlerState} ->
             Response = #response{
                 status = ?STATUS_OK,
                 status_flags = ?SERVER_STATUS_AUTOCOMMIT,
                 id = 2
             },
             gen_tcp:send(Socket, my_packet:encode(Response)), 
-            {next_state, normal, StateData};
+            {next_state, normal, StateData#state{handler_state=HandlerState}};
         {error, Reason} ->
             Response = #response{
                 status = ?STATUS_ERR,
@@ -103,19 +104,19 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
             {stop, normal, StateData}
     end;
 
-handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet=Packet}=StateData) ->
+handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet=Packet,handler_state=HandlerState}=StateData) ->
     case my_packet:decode(Msg) of
         #request{continue=true, info=Info}=Request ->
             lager:info("Received (partial): ~p~n", [Request]),
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
         #request{continue=false, id=Id, info=Info}=Request ->
             lager:info("Received: ~p~n", [Request]),
-            Response = Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>}),
+            {Response,HandlerState} = Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>}, HandlerState),
             lager:info("Response: ~p~n", [Response]),
             gen_tcp:send(Socket, my_packet:encode(
                 Response#response{id = Id+1}
             )),
-            {next_state, normal, StateData#state{packet = <<"">>}}
+            {next_state, normal, StateData#state{packet = <<"">>,handler_state=HandlerState}}
     end;
 
 handle_info({tcp_closed, _Socket}, _StateName, #state{id=Id}=StateData) ->
@@ -133,7 +134,8 @@ handle_event(_Event, StateName, StateData) ->
 handle_sync_event(_Event, _From, StateName, StateData) ->
     {reply, ok, StateName, StateData}.
 
-terminate(_Reason, _StateName, _StateData) ->
+terminate(Reason, _StateName, #state{handler=Handler,handler_state=HandlerState}) ->
+    Handler:terminate(Reason, HandlerState),
     ok.
  
 code_change(_OldVsn, StateName, StateData, _Extra) ->

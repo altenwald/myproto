@@ -7,11 +7,18 @@
 	Hash::binary(),
 	Password::binary()
 ) -> 
-	binary() | 
+	{ok, binary(), State::term()} | 
 	{error, Reason::binary()}.
 
 
 -callback execute(
-	Query :: #request{}
+	Query :: #request{},
+	State :: term()
 ) ->
-	{list(#column{}), list(binary())} | #response{}.
+	{#response{}, State::term()}.
+
+-callback terminate(
+	Reason :: term(),
+	State :: term()
+) ->
+	ok.
