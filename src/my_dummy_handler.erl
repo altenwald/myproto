@@ -14,13 +14,19 @@ check_pass(User, Hash, Password) ->
 execute(#request{info = <<"select @@version_comment", _/binary>>}, State) ->
     Info = {
         [#column{name = <<"@@version_comment">>, type=?TYPE_VARCHAR, length=20}],
-        [<<"myproto 0.1">>]
+        [[<<"myproto 0.1">>]]
     },
     {#response{status=?STATUS_OK, info=Info}, State};
 execute(_Request, State) ->
     Info = {
-        [#column{name = <<"Info">>, type=?TYPE_VARCHAR, length=20}],
-        [<<"Not implemented!">>]
+        [
+            #column{name = <<"Info">>, type=?TYPE_VARCHAR, length=20},
+            #column{name = <<"Info2">>, type=?TYPE_VARCHAR, length=20}
+        ],
+        [
+            [<<"Not implemented!">>, <<"Yet">>],
+            [<<"Testing MultiColumn!">>, <<"Still">>]
+        ]
     },
     {#response{status=?STATUS_OK, info=Info}, State}.
 

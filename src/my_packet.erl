@@ -33,7 +33,7 @@ encode(#response{
     ColLen = length(Cols),
     Head = <<1:24/little, Id:8, ColLen:8>>,
     %% columns
-    {IdEof, ColsBin} = encode_column(Cols, 2),
+    {IdEof, ColsBin} = encode_column(Cols, Id+1),
     %% eof
     ColsEof = encode(#response{
         status=?STATUS_EOF, 
@@ -121,12 +121,15 @@ encode_column(#column{
     PayloadLen = byte_size(Payload),
     <<PayloadLen:24/little, Id:8, Payload/binary>>.
 
-encode_row(Row, Id) ->
-    lists:foldl(fun(Cell, {NewId, Data}) ->
-        Payload = my_datatypes:binary_to_varchar(Cell),
+encode_row(Rows, Id) ->
+    lists:foldl(fun(Cols, {NewId, Data}) ->
+        Payload = lists:foldl(fun(Cell, Col) ->
+            CellEnc = my_datatypes:binary_to_varchar(Cell), 
+            <<Col/binary, CellEnc/binary>>
+        end, <<"">>, Cols),
         Length = byte_size(Payload),
         {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
-    end, {Id, <<"">>}, Row).
+    end, {Id, <<"">>}, Rows).
 
 decode_auth(<<
     _Length:24/little, 1:8, Caps:32/little, _MaxPackSize:32/little, Charset:8, 
