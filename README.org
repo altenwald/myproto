@@ -8,7 +8,7 @@
 
 #+BEGIN_EXAMPLE
   {deps, [
-      {lager, ".*", {git, "git://github.com/basho/lager.git", master}}
+      {myproto, ".*", {git, "git://github.com/bosqueviejo/myproto.git", master}}
   ]}.
 #+END_EXAMPLE
 
