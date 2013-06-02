@@ -135,14 +135,24 @@ decode_auth(<<
     _Length:24/little, 1:8, Caps:32/little, _MaxPackSize:32/little, Charset:8, 
     _Reserved:23/binary, Info/binary
 >>) ->
-    [User, <<20:8, Password:20/binary, PlugIn/binary>>] = binary:split(Info, <<0>>),
-    UserData = #user{
-        name=User, 
-        password=Password, 
-        plugin=PlugIn, 
-        capabilities=Caps, 
-        charset=Charset
-    },
+    case binary:split(Info, <<0>>) of 
+        [User, <<20:8, Password:20/binary, PlugIn/binary>>] ->
+            UserData = #user{
+                name=User, 
+                password=Password, 
+                plugin=PlugIn, 
+                capabilities=Caps, 
+                charset=Charset
+            };
+        [User, <<0:8, PlugIn/binary>>] ->
+            UserData = #user{
+                name=User,
+                password=undefined,
+                plugin=PlugIn,
+                capabilities=Caps,
+                charset=Charset
+            }
+    end,
     #request{command=?COM_AUTH, info=UserData}.
 
 decode(<<_Length:24/little, Id:8, ?COM_FIELD_LIST:8, Info/binary>>) ->

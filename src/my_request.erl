@@ -16,7 +16,7 @@
     id      :: integer(),        %% connection id
     hash    :: binary(),         %% hash for auth
     handler :: atom(),           %% Handler for auth/queries
-    packet = <<"">> :: binary(), %% Received packet
+    packet = <<>> :: binary(),   %% Received packet
     handler_state
 }).
 
@@ -37,27 +37,26 @@ sha1_hex(Data) ->
 
 -spec to_hex(Hash :: binary()) -> binary().
 
+to_hex(undefined) ->
+    <<"undefined">>;
 to_hex(<<X:160/big-unsigned-integer>>) ->
     list_to_binary(io_lib:format("~40.16.0b", [X])).
 
 -spec check_sha1_pass(Pass::binary(), Salt::binary()) -> binary().
 
-check_sha1_pass(Stage1, Salt) ->
-    Stage2 = crypto:sha(Stage1),
-    Stage2 = crypto:sha(Stage1),
+check_sha1_pass(Stage, Salt) ->
     Res = crypto:sha_final(
         crypto:sha_update(
             crypto:sha_update(crypto:sha_init(), Salt),
-            Stage2
+            crypto:sha(Stage)
         )
     ),
-    crypto:exor(Stage1, Res).
+    crypto:exor(Stage, Res).
 
 -spec check_clean_pass(Pass::binary(), Salt::binary()) -> binary().
 
 check_clean_pass(Pass, Salt) ->
-    Stage1 = crypto:sha(Pass),
-    check_sha1_pass(Stage1, Salt).
+    check_sha1_pass(crypto:sha(Pass), Salt).
 
 %% callbacks
 
@@ -95,7 +94,17 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
         {error, Reason} ->
             Response = #response{
                 status = ?STATUS_ERR,
-                error_code = 2003,
+                error_code = 1045,
+                info = Reason,
+                id = 2
+            },
+            gen_tcp:send(Socket, my_packet:encode(Response)),
+            gen_tcp:close(Socket),
+            {stop, normal, StateData};
+        {error, Code, Reason} ->
+            Response = #response{
+                status = ?STATUS_ERR,
+                error_code = Code,
                 info = Reason,
                 id = 2
             },

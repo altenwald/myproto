@@ -8,7 +8,8 @@
 	Password::binary()
 ) -> 
 	{ok, binary(), State::term()} | 
-	{error, Reason::binary()}.
+	{error, Reason::binary()} |
+	{error, Code::integer(), Reason::binary()}.
 
 
 -callback execute(
