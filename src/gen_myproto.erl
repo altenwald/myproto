@@ -3,17 +3,17 @@
 -include("../include/myproto.hrl").
 
 -callback check_pass(
-	User::binary(), 
-	Hash::binary(),
-	Password::binary()
+	User::user_string(), 
+	Hash::hash(),
+	Password::password()
 ) -> 
-	{ok, binary(), State::term()} | 
+	{ok, password(), State::term()} | 
 	{error, Reason::binary()} |
 	{error, Code::integer(), Reason::binary()}.
 
 
 -callback execute(
-	Query :: #request{},
+	Query :: request(),
 	State :: term()
 ) ->
 	{#response{}, State::term()}.

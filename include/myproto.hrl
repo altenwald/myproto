@@ -121,13 +121,16 @@
 -define(CLIENT_CONNECT_ATTRS, 16#100000).
 -define(CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA, 16#200000).
 
+-include("sql.hrl").
 
 -record(request, {
 	command :: integer(),
-	info :: string(),
+	info :: string() | sql(),
 	continue = false :: boolean(),
 	id = 0 :: integer()
 }).
+
+-type request() :: #request{}.
 
 -record(user, {
 	name :: binary(),
@@ -137,6 +140,8 @@
 	charset :: binary()
 }).
 
+-type user() :: #user{}.
+
 -record(response, {
 	status = 0 :: integer(),
 	id = 0 :: integer(),
@@ -144,19 +149,28 @@
 	last_insert_id = 0 :: integer(), %% as var_integer
 	status_flags = 0 :: integer(),
 	warnings = 0 :: integer(), %% only with protocol 4.1
-	info = <<"">> :: binary(),
+	info = <<>> :: binary(),
 	error_code = 0 :: integer(),
-	error_info = <<"">> :: binary()
+	error_info = <<>> :: binary()
 }).
 
+-type response() :: #response{}.
+
 -record(column, {
-	schema = <<"">> :: binary(),
-	table = <<"">> :: binary(),
+	schema = <<>> :: binary(),
+	table = <<>> :: binary(),
 	name :: binary(),
 	charset = ?UTF8_GENERAL_CI :: integer(),
 	length :: integer(),
 	type :: integer(),
 	flags = 0 :: integer(),
 	decimals = 0 :: integer(),
-	default = <<"">> :: ( binary() | integer() )
+	default = <<>> :: ( binary() | integer() )
 }).
+
+-type column() :: #column{}.
+
+-type user_string() :: binary().
+-type password() :: binary().
+-type hash() :: binary().
+

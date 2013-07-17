@@ -7,25 +7,31 @@
 
 -include("../include/myproto.hrl").
  
--export([start/3, check_clean_pass/2, check_sha1_pass/2, sha1_hex/1, to_hex/1]).
+-export([start/4, check_clean_pass/2, check_sha1_pass/2, sha1_hex/1, to_hex/1]).
 -export([init/1, handle_sync_event/4, handle_event/3, handle_info/3,
          terminate/3, code_change/4]).
  
 -record(state, {
-    socket  :: gen_tcp:socket(), %% TCP connection
-    id      :: integer(),        %% connection id
-    hash    :: binary(),         %% hash for auth
-    handler :: atom(),           %% Handler for auth/queries
-    packet = <<>> :: binary(),   %% Received packet
+    socket  :: gen_tcp:socket(),       %% TCP connection
+    id      :: integer(),              %% connection id
+    hash    :: binary(),               %% hash for auth
+    handler :: atom(),                 %% Handler for auth/queries
+    packet = <<>> :: binary(),         %% Received packet
+    parse_query = false :: boolean(),  %% parse the received string or not
     handler_state
 }).
 
 %% API
 
--spec start(Socket :: gen_tcp:socket(), Id :: integer(), Handler :: atom()) -> {ok, pid()}.
+-spec start(
+    Socket::gen_tcp:socket(),
+    Id::integer(), 
+    Handler::atom(),
+    ParseQuery::boolean()
+) -> {ok, pid()}.
 
-start(Socket, Id, Handler) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [Socket, Id, Handler], []),
+start(Socket, Id, Handler, ParseQuery) ->
+    {ok, Pid} = gen_fsm:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
     gen_tcp:controlling_process(Socket, Pid),
     inet:setopts(Socket, [{active, true}]),
     {ok, Pid}.
@@ -60,7 +66,7 @@ check_clean_pass(Pass, Salt) ->
 
 %% callbacks
 
-init([Socket, Id, Handler]) ->
+init([Socket, Id, Handler, ParseQuery]) ->
     Hash = list_to_binary(
         lists:map(fun
             (0) -> 1; 
@@ -75,7 +81,7 @@ init([Socket, Id, Handler]) ->
         info=Hash
     },
     gen_tcp:send(Socket, my_packet:encode(Hello)),
-    {ok, auth, #state{socket=Socket, id=Id, hash=Hash, handler=Handler}}.
+    {ok, auth, #state{socket=Socket, id=Id, hash=Hash, handler=Handler, parse_query=ParseQuery}}.
 
 handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,handler=Handler}) ->
     #request{info=#user{
@@ -116,12 +122,27 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
 handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet=Packet,handler_state=HandlerState}=StateData) ->
     case my_packet:decode(Msg) of
         #request{continue=true, info=Info}=Request ->
-            lager:info("Received (partial): ~p~n", [Request]),
+            lager:debug("Received (partial): ~p~n", [Request]),
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
         #request{continue=false, id=Id, info=Info}=Request ->
-            lager:info("Received: ~p~n", [Request]),
-            {Response, NewHandlerState} = Handler:execute(Request#request{info = <<Packet/binary, Info/binary>>}, HandlerState),
-            lager:info("Response: ~p~n", [Response]),
+            lager:debug("Received: ~p~n", [Request]),
+            FullPacket = <<Packet/binary, Info/binary>>,
+            Query = case StateData#state.parse_query of 
+                false -> Request#request{info = FullPacket};
+                true -> 
+                    case mysql:parse(FullPacket) of 
+                        {fail,Expected} -> 
+                            lager:error("SQL invalid: ~p~n", [Expected]),
+                            Request#request{info = FullPacket};
+                        {_, Extra, Where} ->
+                            lager:error("SQL error: ~p ~p~n", [Extra, Where]),
+                            Request#request{info = FullPacket};
+                        Parsed ->
+                            Request#request{info = Parsed}
+                    end
+            end,
+            {Response, NewHandlerState} = Handler:execute(Query, HandlerState),
+            lager:debug("Response: ~p~n", [Response]),
             gen_tcp:send(Socket, my_packet:encode(
                 Response#response{id = Id+1}
             )),

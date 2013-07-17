@@ -19,6 +19,7 @@
 #+BEGIN_EXAMPLE
   {myproto, [
     {handler, my_dummy_handler},
+    {parse_query, true},
     {server_sign, <<"5.5-myproto">>},
     {port, 3306}
   ]}.

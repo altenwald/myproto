@@ -3,3 +3,6 @@ deps
 *.o
 *.beam
 *.plt
+ebin/
+log/
+src/mysql.erl

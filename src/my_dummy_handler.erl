@@ -11,13 +11,14 @@ check_pass(User, Hash, Password) ->
         _ -> {error, <<"Password incorrect!">>}
     end.
 
-execute(#request{info = <<"select @@version_comment", _/binary>>}, State) ->
+execute(#request{info = #select{params=[#variable{name = <<"version_comment">>}]}}, State) ->
     Info = {
         [#column{name = <<"@@version_comment">>, type=?TYPE_VARCHAR, length=20}],
         [[<<"myproto 0.1">>]]
     },
     {#response{status=?STATUS_OK, info=Info}, State};
-execute(_Request, State) ->
+execute(Request, State) ->
+    lager:info("Request: ~p~n", [Request]),
     Info = {
         [
             #column{name = <<"Info">>, type=?TYPE_VARCHAR, length=20},
