@@ -141,12 +141,19 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
                             Request#request{info = Parsed}
                     end
             end,
-            {Response, NewHandlerState} = Handler:execute(Query, HandlerState),
-            lager:debug("Response: ~p~n", [Response]),
-            gen_tcp:send(Socket, my_packet:encode(
-                Response#response{id = Id+1}
-            )),
-            {next_state, normal, StateData#state{packet = <<"">>,handler_state=NewHandlerState}}
+            NewStateData = StateData#state{packet = <<"">>},
+            case Handler:execute(Query, HandlerState) of 
+                {noreply, NewHandlerState} ->
+                    {next_state, normal, NewStateData#state{handler_state=NewHandlerState}};
+                {reply, Response, NewHandlerState} ->
+                    lager:debug("Response: ~p~n", [Response]),
+                    gen_tcp:send(Socket, my_packet:encode(
+                        Response#response{id = Id+1}
+                    )),
+                    {next_state, normal, NewStateData#state{handler_state=NewHandlerState}};
+                {stop, Reason, NewHandlerState} ->
+                    {stop, Reason, NewStateData#state{handler_state=NewHandlerState}}
+            end
     end;
 
 handle_info({tcp_closed, _Socket}, _StateName, #state{id=Id}=StateData) ->

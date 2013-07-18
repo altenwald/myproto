@@ -16,7 +16,10 @@ execute(#request{info = #select{params=[#variable{name = <<"version_comment">>}]
         [#column{name = <<"@@version_comment">>, type=?TYPE_VARCHAR, length=20}],
         [[<<"myproto 0.1">>]]
     },
-    {#response{status=?STATUS_OK, info=Info}, State};
+    {reply, #response{status=?STATUS_OK, info=Info}, State};
+execute(#request{command = ?COM_QUIT}, State) ->
+    lager:info("Exiting~n", []),
+    {stop, normal, State};
 execute(Request, State) ->
     lager:info("Request: ~p~n", [Request]),
     Info = {
@@ -29,7 +32,7 @@ execute(Request, State) ->
             [<<"Testing MultiColumn!">>, <<"Still">>]
         ]
     },
-    {#response{status=?STATUS_OK, info=Info}, State}.
+    {reply, #response{status=?STATUS_OK, info=Info}, State}.
 
 terminate(_Reason, _State) ->
     ok.

@@ -174,3 +174,4 @@
 -type password() :: binary().
 -type hash() :: binary().
 
+-type state() :: term().
