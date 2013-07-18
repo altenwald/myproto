@@ -124,10 +124,10 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
         #request{continue=true, info=Info}=Request ->
             lager:debug("Received (partial): ~p~n", [Request]),
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
-        #request{continue=false, id=Id, info=Info}=Request ->
+        #request{continue=false, id=Id, info=Info, command=Command}=Request ->
             lager:debug("Received: ~p~n", [Request]),
             FullPacket = <<Packet/binary, Info/binary>>,
-            Query = case StateData#state.parse_query of 
+            Query = case StateData#state.parse_query andalso Command =:= ?COM_QUERY of 
                 false -> Request#request{info = FullPacket};
                 true -> 
                     case mysql:parse(FullPacket) of 
