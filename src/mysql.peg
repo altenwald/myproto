@@ -1,4 +1,12 @@
-sql <- select_query / update_query / insert_query / delete_query / show_query / desc_query ~;
+sql <- select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
+
+% --------------- USE
+
+use_query <- space? use space database space? `
+    [_,_Use,_,Database,_] = Node,
+    {use, Database}
+`;
+
 
 % --------------- DESC
 
@@ -260,6 +268,7 @@ primary <- par:("(" space? add:additive space? ")") / dec:param_wa `
 
 % ------------- reserved words
 
+use <- #(?i)use# `use`;
 describe <- #(?i)desc# / #(?i)describe# `describe`;
 limit <- #(?i)limit# `limit`;
 offset <- #(?i)offset# `offset`;
@@ -287,6 +296,8 @@ order_by <- #(?i)order +by# `order_by`;
 delete <- #(?i)delete +from# `delete`;
 insert <- #(?i)insert +into# `insert`;
 values <- #(?i)values# `values`;
+
+database <- key ~;
 
 % complex types
 keys <- head:key tail:( space? ',' space? key )* `
