@@ -20,8 +20,10 @@ string_nul_to_binary(String) ->
 
 %% Varchars
 
--spec binary_to_varchar(Binary::binary()) -> binary().
+-spec binary_to_varchar(Binary::binary() | null) -> binary().
 
+binary_to_varchar(null) ->
+        <<16#fb>>;
 binary_to_varchar(Binary) ->
 	Len = number_to_var_integer(byte_size(Binary)),
 	<<Len/binary, Binary/binary>>.
