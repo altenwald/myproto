@@ -123,15 +123,6 @@
 
 -include("sql.hrl").
 
--record(request, {
-	command :: integer(),
-	info :: string() | sql(),
-	continue = false :: boolean(),
-	id = 0 :: integer()
-}).
-
--type request() :: #request{}.
-
 -record(user, {
 	name :: binary(),
 	password :: binary(),
@@ -141,6 +132,15 @@
 }).
 
 -type user() :: #user{}.
+
+-record(request, {
+	command :: integer(),
+	info :: string() | sql() | user(),
+	continue = false :: boolean(),
+	id = 0 :: integer()
+}).
+
+-type request() :: #request{}.
 
 -record(response, {
 	status = 0 :: integer(),
