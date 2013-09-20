@@ -15,7 +15,7 @@
 
 -export([init/0, init/1]).
 -export([decode/2]).
--export([hello/2, ok/1]).
+-export([send_or_reply/2, hello/2, ok/1]).
 -export([next_packet/1]).
 
 
@@ -23,6 +23,7 @@
   connection_id :: non_neg_integer(), %% connection id
   hash ::binary(),                    %% hash for auth
   state :: auth | normal,
+  parse_query = true :: boolean(),    %% parse query or not
   buffer :: undefined | binary(),
   socket :: undefined | inet:socket(), %% When socket is set, client will send data
   id = 1 :: non_neg_integer()
@@ -32,10 +33,12 @@
 
 
 init() ->
-  #my{}.
+  init([]).
 
-init(Socket) ->
-  #my{socket = Socket}.
+init(Options) ->
+  Socket = proplists:get_value(socket, Options),
+  ParseQuery = proplists:get_value(parse_query, Options, true),
+  #my{socket = Socket, parse_query = ParseQuery}.
 
 
 -spec hello(ConnectionId::non_neg_integer(), my()) -> {ok, Bin::iodata(), State::my()} | {ok, my()}.
@@ -54,13 +57,19 @@ hello(ConnectionId, #my{} = My) when is_integer(ConnectionId) ->
       status=?STATUS_HELLO, 
       info=Hash
   },
-  send_or_reply(my_packet:encode(Hello), My#my{connection_id = ConnectionId, hash = Hash, state = auth, id = 2}).
+  send_or_reply(Hello, My#my{connection_id = ConnectionId, hash = Hash, state = auth, id = 2}).
 
 
-send_or_reply(Bin, #my{socket = undefined} = My) ->
+send_or_reply(#response{id = 0} = Response, #my{id = Id} = My) ->
+  send_or_reply(my_packet:encode(Response#response{id = Id}), My#my{id = Id+1});
+
+send_or_reply(#response{} = Response, #my{} = My) ->
+  send_or_reply(my_packet:encode(Response), My);
+
+send_or_reply(Bin, #my{socket = undefined} = My) when is_binary(Bin) ->
   {ok, Bin, My};
 
-send_or_reply(Bin, #my{socket = Socket} = My) ->
+send_or_reply(Bin, #my{socket = Socket} = My) when is_binary(Bin) ->
   ok = gen_tcp:send(Socket, Bin),
   {ok, My}.
 
@@ -69,13 +78,12 @@ send_or_reply(Bin, #my{socket = Socket} = My) ->
 
 -spec ok(my()) -> {ok, Reply::binary(), my()}.
 
-ok(#my{id = Id} = My) ->
+ok(#my{} = My) ->
   Response = #response{
     status = ?STATUS_OK,
-    status_flags = ?SERVER_STATUS_AUTOCOMMIT,
-    id = Id
+    status_flags = ?SERVER_STATUS_AUTOCOMMIT
   },
-  send_or_reply(my_packet:encode(Response), My#my{id = Id+1}).
+  send_or_reply(Response, My).
 
 
 
@@ -114,13 +122,24 @@ decode(#my{} = My) ->
 
 
 
-next_packet(#my{buffer = undefined, socket = Socket, state = State} = My) when Socket =/= undefined ->
+next_packet(#my{buffer = undefined, socket = Socket, state = State, parse_query = ParseQuery} = My) when Socket =/= undefined ->
   case gen_tcp:recv(Socket, 4) of
     {ok, <<Length:24/little, _>> = Header} ->
       case gen_tcp:recv(Socket, Length) of
         {ok, Bin} when size(Bin) == Length andalso State == normal ->
-          {ok, Packet, <<>>} = my_packet:decode(<<Header/binary, Bin/binary>>),
-          {ok, Packet, My};
+          {ok, #request{info = Info, command = Command} = Packet, <<>>} = my_packet:decode(<<Header/binary, Bin/binary>>),
+          Packet1 = case Command of
+            ?COM_QUERY when ParseQuery ->
+              SQL = case mysql:parse(Info) of
+                {fail,Expected} -> {parse_error, {fail,Expected}, Info};
+                {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
+                Parsed -> Parsed
+              end,
+              Packet#request{info = SQL};
+            _ ->
+              Packet
+          end,
+          {ok, Packet1, My};
         {ok, Bin} when size(Bin) == Length andalso State == auth ->
           {ok, Packet, <<>>} = my_packet:decode_auth(<<Header/binary, Bin/binary>>),
           {ok, Packet, My#my{state = normal}};

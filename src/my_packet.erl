@@ -103,7 +103,9 @@ encode_column(#column{
         schema = Schema, table = Table, name = Name,
         charset = Charset, length = Length, type = Type,
         flags = Flags, decimals = Decimals
-    }, Id) ->
+    }, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
+    is_integer(Charset), is_integer(Length), is_integer(Type), 
+    is_integer(Flags), is_integer(Decimals) ->
     SchemaLen = my_datatypes:number_to_var_integer(byte_size(Schema)),
     TableLen = my_datatypes:number_to_var_integer(byte_size(Table)),
     NameLen = my_datatypes:number_to_var_integer(byte_size(Name)),
