@@ -131,10 +131,17 @@ encode_row(Rows, Id) ->
         {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
     end, {Id, <<"">>}, Rows).
 
-decode_auth(<<
-    _Length:24/little, 1:8, Caps:32/little, _MaxPackSize:32/little, Charset:8, 
-    _Reserved:23/binary, Info/binary
->>) ->
+decode_auth(<<Length:24/little, 1:8, Bin:Length/binary, Rest/binary>>) ->
+    {ok, decode_auth0(Bin), Rest};
+
+decode_auth(<<Length:24/little, 1:8, Bin/binary>>) ->
+    {more, size(Bin) - Length};
+
+decode_auth(<<Bin/binary>>) ->
+    {more, 4 - size(Bin)}.
+
+
+decode_auth0(<<Caps:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:23/binary, Info/binary>>) ->
     case binary:split(Info, <<0>>) of 
         [User, <<20:8, Password:20/binary, PlugIn/binary>>] ->
             UserData = #user{
@@ -155,20 +162,31 @@ decode_auth(<<
     end,
     #request{command=?COM_AUTH, info=UserData}.
 
-decode(<<_Length:24/little, Id:8, ?COM_FIELD_LIST:8, Info/binary>>) ->
+
+
+decode(<<Length:24/little, Id, Bin:Length/binary, Rest/binary>>) ->
+    {ok, decode0(Length, Id, Bin), Rest};
+
+decode(<<Length:24/little, _Id, Bin/binary>>) ->
+    {more, Length - size(Bin)};
+
+decode(<<Bin/binary>>) ->
+    {more, 4 - size(Bin)}.
+
+decode0(_, Id, <<?COM_FIELD_LIST:8, Info/binary>>) ->
     #request{
         command=?COM_FIELD_LIST, 
         id=Id, 
         info=my_datatypes:string_nul_to_binary(Info)
     };
-decode(<<16#ffffff:24/little, Id:8, Command:8, Info/binary>>) ->
+decode0(16#ffffff, Id, <<Command:8, Info/binary>>) ->
     #request{
         command=Command,
         id=Id,
         info=Info, 
         continue=true
     };
-decode(<<_Length:24/little, Id:8, Command:8, Info/binary>>) ->
+decode0(_, Id, <<Command:8, Info/binary>>) ->
     #request{
         command=Command,
         id=Id,
