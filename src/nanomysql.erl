@@ -79,15 +79,12 @@ lenenc_str(<<252, Len:16/little, Value:Len/binary, Bin/binary>>) -> {Value, Bin}
 lenenc_str(<<253, Len:24/little, Value:Len/binary, Bin/binary>>) -> {Value, Bin}.
 
 
+
 read_packet(Sock) ->
-  case gen_tcp:recv(Sock, 4) of
-    {ok, <<Len:24/little, Number>>} ->
-      case gen_tcp:recv(Sock, Len) of
-        {ok, <<255, Code:16/little, Error/binary>>} -> {error, {Code, Error}};
-        {ok, Bin} -> {ok, Number, Bin}
-      end;
-    {error, Error} ->
-      {error, Error}
+  {ok, <<Len:24/little, Number>>} = gen_tcp:recv(Sock, 4),
+  case gen_tcp:recv(Sock, Len) of
+    {ok, <<255, Code:16/little, Error/binary>>} -> {error, {Code, Error}};
+    {ok, Bin} -> {ok, Number, Bin}
   end.
 
 

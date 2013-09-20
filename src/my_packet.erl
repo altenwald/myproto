@@ -65,6 +65,7 @@ encode(#response{
 encode(#response{
         status=?STATUS_HELLO, id=Id, info=Hash
     }) ->
+    20 == size(Hash) orelse error({invalid_hash_size,size(Hash),need,20}),
     ServerSign = case application:get_env(myproto, server_sign) of
         {ok, SS} when is_binary(SS) -> SS;
         {ok, SS} when is_list(SS) -> list_to_binary(SS);
@@ -76,8 +77,8 @@ encode(#response{
         ?CLIENT_SECURE_CONNECTION bor %% for mysql_native_password
         0,
     <<CapsLow:16/little, CapsUp:16/little>> = <<Caps:32/little>>,
-    <<IntHash:160/little-unsigned-integer>> = Hash,
-    <<Auth1:8/binary, Auth2/binary>> = <<IntHash:160/little-unsigned-integer>>,
+    % <<IntHash:160/little-unsigned-integer>> = Hash,
+    <<Auth1:8/binary, Auth2/binary>> = Hash, %<<IntHash:160/little-unsigned-integer>>,
     LenAuth = 21,
     StatusFlags = 
         ?SERVER_STATUS_AUTOCOMMIT bor
@@ -131,6 +132,11 @@ encode_row(Rows, Id) ->
         {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
     end, {Id, <<"">>}, Rows).
 
+
+
+-spec decode_auth(binary()) -> {ok, user(), binary()} | {more, binary()}.
+
+
 decode_auth(<<Length:24/little, 1:8, Bin:Length/binary, Rest/binary>>) ->
     {ok, decode_auth0(Bin), Rest};
 
@@ -163,6 +169,8 @@ decode_auth0(<<Caps:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:23/b
     #request{command=?COM_AUTH, info=UserData}.
 
 
+
+-spec decode(binary()) -> {ok, response(), binary()} | {more, binary()}.
 
 decode(<<Length:24/little, Id, Bin:Length/binary, Rest/binary>>) ->
     {ok, decode0(Length, Id, Bin), Rest};

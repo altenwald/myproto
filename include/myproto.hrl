@@ -1,4 +1,4 @@
--define(SERVER_SIGN, "5.5-myproto").
+-define(SERVER_SIGN, <<"5.5-myproto">>).
 
 %% status flags
 -define(SERVER_STATUS_IN_TRANS, 16#0001).
@@ -128,7 +128,8 @@
 	password :: binary(),
 	capabilities :: integer(),
 	plugin :: binary(),
-	charset :: binary()
+	charset :: binary(),
+	server_hash :: binary()
 }).
 
 -type user() :: #user{}.
