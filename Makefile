@@ -1,5 +1,9 @@
 
-all:
+all: deps/neotoma/ebin/neotoma.beam
+	./rebar compile skip_deps=true
+
+
+deps/neotoma/ebin/neotoma.beam: 
 	./rebar get-deps compile
 
 clean:
