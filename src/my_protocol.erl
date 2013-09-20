@@ -14,9 +14,9 @@
 -author('Max Lapshin <max@maxidoors.ru>').
 
 -export([init/0, init/1]).
--export([hello/2, decode/2]).
-
--export([ok/1]).
+-export([decode/2]).
+-export([hello/2, ok/1]).
+-export([next_packet/1]).
 
 
 -record(my, {
@@ -114,6 +114,22 @@ decode(#my{} = My) ->
 
 
 
+next_packet(#my{buffer = undefined, socket = Socket, state = State} = My) when Socket =/= undefined ->
+  case gen_tcp:recv(Socket, 4) of
+    {ok, <<Length:24/little, _>> = Header} ->
+      case gen_tcp:recv(Socket, Length) of
+        {ok, Bin} when size(Bin) == Length andalso State == normal ->
+          {ok, Packet, <<>>} = my_packet:decode(<<Header/binary, Bin/binary>>),
+          {ok, Packet, My};
+        {ok, Bin} when size(Bin) == Length andalso State == auth ->
+          {ok, Packet, <<>>} = my_packet:decode_auth(<<Header/binary, Bin/binary>>),
+          {ok, Packet, My#my{state = normal}};
+        {error, _} = Error ->
+          Error
+      end;
+    {error, _} = Error ->
+      Error
+  end.
 
 
 
