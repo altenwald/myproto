@@ -22,12 +22,10 @@ select_simple_test() ->
     ok
   end),
   {ok, Sock} = gen_tcp:accept(LSocket),
-  {ok, Hello, My1} = my_protocol:hello(42),
-  ok = gen_tcp:send(Sock, Hello),
-  % inet:setopts(Sock, [{active,true}]),
+  My0 = my_protocol:init(Sock),
+  {ok, My1} = my_protocol:hello(42, My0),
   {ok, Bin} = gen_tcp:recv(Sock, 0),
   {ok, #request{info = #user{}}, My2} = my_protocol:decode(Bin, My1),
-  {ok, Ok1, My3} = my_protocol:ok(My2),
-  ok = gen_tcp:send(Sock, Ok1),
+  {ok, My3} = my_protocol:ok(My2),
   ok.
 

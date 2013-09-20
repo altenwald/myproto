@@ -13,7 +13,8 @@
 -include("../include/myproto.hrl").
 -author('Max Lapshin <max@maxidoors.ru>').
 
--export([hello/1, decode/2]).
+-export([init/0, init/1]).
+-export([hello/2, decode/2]).
 
 -export([ok/1]).
 
@@ -22,16 +23,24 @@
   connection_id :: non_neg_integer(), %% connection id
   hash ::binary(),                    %% hash for auth
   state :: auth | normal,
-  buffer,
-  id = 1
+  buffer :: undefined | binary(),
+  socket :: undefined | inet:socket(), %% When socket is set, client will send data
+  id = 1 :: non_neg_integer()
 }).
 
 -type my() :: #my{}.
 
 
--spec hello(ConnectionId::non_neg_integer()) -> {ok, Bin::iodata(), State::my()}.
+init() ->
+  #my{}.
 
-hello(ConnectionId) when is_integer(ConnectionId) ->
+init(Socket) ->
+  #my{socket = Socket}.
+
+
+-spec hello(ConnectionId::non_neg_integer(), my()) -> {ok, Bin::iodata(), State::my()} | {ok, my()}.
+
+hello(ConnectionId, #my{} = My) when is_integer(ConnectionId) ->
   Hash = list_to_binary(
       lists:map(fun
           (0) -> 1; 
@@ -45,7 +54,16 @@ hello(ConnectionId) when is_integer(ConnectionId) ->
       status=?STATUS_HELLO, 
       info=Hash
   },
-  {ok, my_packet:encode(Hello), #my{connection_id = ConnectionId, hash = Hash, state = auth, id = 2}}.
+  send_or_reply(my_packet:encode(Hello), My#my{connection_id = ConnectionId, hash = Hash, state = auth, id = 2}).
+
+
+send_or_reply(Bin, #my{socket = undefined} = My) ->
+  {ok, Bin, My};
+
+send_or_reply(Bin, #my{socket = Socket} = My) ->
+  ok = gen_tcp:send(Socket, Bin),
+  {ok, My}.
+
 
 
 
@@ -57,7 +75,7 @@ ok(#my{id = Id} = My) ->
     status_flags = ?SERVER_STATUS_AUTOCOMMIT,
     id = Id
   },
-  {ok, my_packet:encode(Response), My#my{id = Id+1}}.
+  send_or_reply(my_packet:encode(Response), My#my{id = Id+1}).
 
 
 
