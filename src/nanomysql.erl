@@ -130,7 +130,7 @@ unpack_value(#column{type = T}, Bin) when
   T == 1; T == 2; T == 3; T == 8; T == 9; T == 13 ->
   % Len = Length*8,
   % <<Val:Len/little>> = Bin,
-  binary_to_integer(Bin);
+  list_to_integer(binary_to_list(Bin));
 
 unpack_value(_, Bin) ->
   Bin.
