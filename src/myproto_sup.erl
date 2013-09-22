@@ -4,7 +4,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/3]).
+-export([start_link/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -16,18 +16,28 @@
 %% API functions
 %% ===================================================================
 
--spec start_link(Port::integer(), Handler::atom(), ParseQuery::boolean()) ->
+-spec start_link() ->
 	{ok, pid()} | {error, Reason::term()}.
 
-start_link(Port, Handler, ParseQuery) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [Port, Handler, ParseQuery]).
+start_link() ->
+  supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([Port, Handler, Parser]) ->
-    {ok, { {one_for_one, 5, 10}, [
-    	?CHILD(my_acceptor, [Port, Handler, Parser])
-    ]} }.
+init([]) ->
+  Acceptor = case application:get_env(myproto, port) of
+    {ok, Port} ->
+      {ok, Handler} = application:get_env(myproto, handler),
+      ParseQuery = case application:get_env(myproto, parse_query) of 
+        {ok, PQ} ->  PQ;
+        _ -> false
+      end,
+      [?CHILD(my_acceptor, [Port, Handler, ParseQuery])];
+    undefined ->
+      []
+  end,
+
+  {ok, { {one_for_one, 5, 10}, Acceptor} }.
 

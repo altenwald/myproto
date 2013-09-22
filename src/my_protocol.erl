@@ -14,7 +14,7 @@
 -author('Max Lapshin <max@maxidoors.ru>').
 
 -export([init/0, init/1]).
--export([decode/2]).
+-export([decode/2, decode/1, buffer_bytes/2]).
 -export([send_or_reply/2, hello/2, ok/1]).
 -export([next_packet/1]).
 
@@ -87,17 +87,24 @@ ok(#my{} = My) ->
 
 
 
--spec decode(binary(), my()) -> {ok, Reply::response() | user(), my()}.
-
-decode(Bin, #my{buffer = Buffer} = My) when size(Buffer) > 0 andalso size(Bin) > 0 ->
-  decode(My#my{buffer = <<Bin/binary, Buffer/binary>>});
+-spec decode(binary(), my()) -> {ok, Reply::request(), my()}.
 
 decode(Bin, #my{} = My) ->
-  decode(My#my{buffer = Bin}).
+  My1 = buffer_bytes(Bin, My),
+  decode(My1).
+
+
+-spec buffer_bytes(binary(), my()) -> my().
+
+buffer_bytes(Bin, #my{buffer = Buffer} = My) when size(Buffer) > 0 andalso size(Bin) > 0 ->
+  My#my{buffer = <<Bin/binary, Buffer/binary>>};
+
+buffer_bytes(Bin, #my{} = My) ->
+  My#my{buffer = Bin}.
 
 
 
--spec decode(my()) -> {ok, Reply::response() | user(), my()}.
+-spec decode(my()) -> {ok, Reply::request(), my()}.
 decode(#my{buffer = Bin, state = auth, hash = Hash} = My) when size(Bin) > 4 ->
   case my_packet:decode_auth(Bin) of
     {more, _} ->
