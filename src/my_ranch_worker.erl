@@ -59,10 +59,12 @@ handle_info({tcp, Socket, Bin}, #server{my = My} = Server) ->
       {stop, normal, Server}
   end;
 
-handle_info({tcp_closed, _Socket}, #server{} = Server) ->
+handle_info({tcp_closed, _Socket}, #server{handler = Handler, state = HandlerState} = Server) ->
+  Handler:terminate(normal, HandlerState),
   {stop, normal, Server};
 
-handle_info({tcp_error, _, _}, #server{} = Server) ->
+handle_info({tcp_error, _, Error}, #server{handler = Handler, state = HandlerState} = Server) ->
+  Handler:terminate({tcp_error, Error}, HandlerState),
   {stop, normal, Server}.
 
 
@@ -80,6 +82,7 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
           {ok, My2} = my_protocol:send_or_reply(Response, My1),
           handle_packets(Server#server{my = My2, state = HandlerState1});
         {stop, Reason, HandlerState1} ->
+          Handler:terminate(Reason, HandlerState1),
           {stop, Reason, Server#server{my = My1, state = HandlerState1}}
       end;
     {more, My1} ->

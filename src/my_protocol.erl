@@ -76,6 +76,7 @@ send_or_reply(Bin, #my{socket = undefined} = My) when is_binary(Bin) ->
   {ok, Bin, My};
 
 send_or_reply(Bin, #my{socket = Socket} = My) when is_binary(Bin) ->
+  % lager:info("outgoing ~p", [Bin]),
   ok = gen_tcp:send(Socket, Bin),
   {ok, My}.
 

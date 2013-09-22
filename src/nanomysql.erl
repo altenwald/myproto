@@ -1,7 +1,7 @@
 -module(nanomysql).
 -author('Max Lapshin <max@maxidoors.ru>').
 
--export([connect/1, execute/2]).
+-export([connect/1, execute/2, command/3]).
 
 %% @doc
 %% connect("mysql://user:password@127.0.0.1/dbname")
@@ -9,7 +9,10 @@
 connect(URL) ->
   {ok, {mysql, AuthInfo, Host, Port, "/"++DBName, []}} = http_uri:parse(URL, [{scheme_defaults,[{mysql,3306}]}]),
 
-  [User, Password] = string:tokens(AuthInfo, ":"),
+  [User, Password] = case string:tokens(AuthInfo, ":") of
+    [U,P] -> [U,P];
+    [U] -> [U,""]
+  end, 
 
   {ok, Sock} = gen_tcp:connect(Host, Port, [binary,{active,false}]),
   
@@ -51,23 +54,59 @@ connect(URL) ->
 }).
 
 execute(Query, Sock) ->
-  send_packet(Sock, 0, [3, Query]),
-  {ok, _, <<Cols>>} = read_packet(Sock),
-  Columns = [begin
-    {ok, _, FieldBin} = read_packet(Sock),
-    {_, B1} = lenenc_str(FieldBin), % Catalog
-    {_, B2} = lenenc_str(B1),       % schema
-    {_, B3} = lenenc_str(B2),       % table
-    {_, B4} = lenenc_str(B3),       % org_table
-    {Field, B5} = lenenc_str(B4),   % column name
-    {_, B6} = lenenc_str(B5),       % org_name
-    <<16#0c, _Charset:16/little, Length:32/little, Type:8, _/binary>> = B6,
-    #column{name = Field, type = Type, length = Length}
-  end || _ <- lists:seq(1,Cols)],
-  {ok, _, <<254, _/binary>>} = read_packet(Sock),
+  command(3, Query, Sock).
 
-  Rows = read_rows(Columns, Sock),
-  {ok, {[Field || #column{name = Field} <- Columns], Rows}}.
+
+command(show_fields, Info, Sock) ->
+  command(4, Info, Sock);
+
+command(2 = Cmd, Info, Sock) ->
+  send_packet(Sock, 0, [Cmd, Info]),
+  {ok, _, <<0, _/binary>>} = read_packet(Sock),
+  ok;
+
+command(Cmd, Info, Sock) when is_integer(Cmd) ->
+  send_packet(Sock, 0, [Cmd, Info]),
+  case read_columns(Sock) of
+    {_Cols, Columns} -> % response to query
+      Rows = read_rows(Columns, Sock),
+      {ok, {[{Field,type_name(Type)} || #column{name = Field, type = Type} <- Columns], Rows}};
+    Columns ->
+      {ok, {[{Field,type_name(Type)} || #column{name = Field, type = Type} <- Columns]}}
+  end.
+
+
+read_columns(Sock) ->
+  case read_packet(Sock) of
+    {ok, _, <<254, _/binary>>} ->
+      [];
+    {ok, _, <<Cols>>} -> 
+      {Cols, read_columns(Sock)}; % number of columns
+    {ok, _, FieldBin} ->
+      {_, B1} = lenenc_str(FieldBin), % Catalog
+      {_, B2} = lenenc_str(B1),       % schema
+      {_, B3} = lenenc_str(B2),       % table
+      {_, B4} = lenenc_str(B3),       % org_table
+      {Field, B5} = lenenc_str(B4),   % column name
+      {_, B6} = lenenc_str(B5),       % org_name
+      <<16#0c, _Charset:16/little, Length:32/little, Type:8, _/binary>> = B6,
+      [#column{name = Field, type = Type, length = Length}|read_columns(Sock)]
+  end.
+
+
+
+
+
+type_name(0) -> decimal;
+type_name(1) -> tiny;
+type_name(2) -> short;
+type_name(3) -> long;
+type_name(15) -> varchar;
+type_name(16#fc) -> blob;
+type_name(16#fd) -> varstring;
+type_name(T) -> T.
+
+
 
 
 read_rows(Columns, Sock) ->
@@ -112,6 +151,7 @@ read_packet(Sock) ->
 send_packet(Sock, Number, Bin) ->
   case iolist_size(Bin) of
     Size when Size < 16#ffffff ->
+      io:format("out packet: ~p\n", [iolist_to_binary(Bin)]),
       ok = gen_tcp:send(Sock, [<<Size:24/unsigned-little, Number>>, Bin]);
     _ ->
       <<Command, Rest/binary>> = iolist_to_binary(Bin),

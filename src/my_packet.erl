@@ -27,6 +27,18 @@ encode(#response{
     Length = byte_size(Info) + 3,
     <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, Info/binary>>;
 encode(#response{
+        status=?STATUS_OK, id=Id, info={Cols}
+    }) ->
+    %% columns
+    {IdEof, ColsBin} = encode_column(Cols, Id),
+    %% eof
+    ColsEof = encode(#response{
+        status=?STATUS_EOF, 
+        id=IdEof, 
+        status_flags=?SERVER_STATUS_AUTOCOMMIT
+    }),
+    <<ColsBin/binary, ColsEof/binary>>;
+encode(#response{
         status=?STATUS_OK, id=Id, info={Cols, Rows}
     }) ->
     %% Column account
@@ -236,6 +248,7 @@ unpack_caps(Flag) ->
 -spec decode(binary()) -> {ok, response(), binary()} | {more, binary()}.
 
 decode(<<Length:24/little, Id, Bin:Length/binary, Rest/binary>>) ->
+    % lager:info("incoming packet: ~p", [Bin]),
     {ok, decode0(Length, Id, Bin), Rest};
 
 decode(<<Length:24/little, _Id, Bin/binary>>) ->
