@@ -15,21 +15,21 @@
 
 update_simple_test() ->
     ?assertEqual(
-        mysql:parse("update mitabla set dato=1"),
+        mysql_proto:parse("update mitabla set dato=1"),
         #update{
             table=#table{alias = <<"mitabla">>, name = <<"mitabla">>},
             set=[#set{key = <<"dato">>, value=#value{value=1}}]
         }
     ),
     ?assertEqual(
-        mysql:parse(" Update   mitabla SET dato  =  1    "),
-        mysql:parse("UPDATE mitabla SET dato=1")
+        mysql_proto:parse(" Update   mitabla SET dato  =  1    "),
+        mysql_proto:parse("UPDATE mitabla SET dato=1")
     ),
     ok.
 
 update_multiparams_test() ->
     ?assertEqual(
-        mysql:parse("update mitabla set dato1=1, dato2='bon jovi', dato3='this ain''t a love song'"),
+        mysql_proto:parse("update mitabla set dato1=1, dato2='bon jovi', dato3='this ain''t a love song'"),
         #update{
             table=#table{alias = <<"mitabla">>, name = <<"mitabla">>},
             set=[
@@ -43,7 +43,7 @@ update_multiparams_test() ->
 
 update_where_test() ->
     ?assertEqual(
-        mysql:parse("update mitabla set dato=1 where dato=5"),
+        mysql_proto:parse("update mitabla set dato=1 where dato=5"),
         #update{
             table=#table{alias = <<"mitabla">>, name = <<"mitabla">>},
             set=[#set{key = <<"dato">>, value=#value{value=1}}],

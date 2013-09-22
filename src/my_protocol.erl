@@ -130,7 +130,7 @@ next_packet(#my{buffer = undefined, socket = Socket, state = State, parse_query 
           {ok, #request{info = Info, command = Command} = Packet, <<>>} = my_packet:decode(<<Header/binary, Bin/binary>>),
           Packet1 = case Command of
             ?COM_QUERY when ParseQuery ->
-              SQL = case mysql:parse(Info) of
+              SQL = case mysql_proto:parse(Info) of
                 {fail,Expected} -> {parse_error, {fail,Expected}, Info};
                 {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
                 Parsed -> Parsed

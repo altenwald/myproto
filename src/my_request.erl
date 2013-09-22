@@ -130,7 +130,7 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
             Query = case StateData#state.parse_query andalso Command =:= ?COM_QUERY of 
                 false -> Request#request{info = FullPacket};
                 true -> 
-                    case mysql:parse(FullPacket) of 
+                    case mysql_proto:parse(FullPacket) of 
                         {fail,Expected} -> 
                             lager:error("SQL invalid: ~p~n", [Expected]),
                             Request#request{info = FullPacket};

@@ -6,3 +6,5 @@ deps
 ebin/
 log/
 src/mysql.erl
+src/mysql_proto.erl
+

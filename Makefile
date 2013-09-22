@@ -7,7 +7,8 @@ deps/neotoma/ebin/neotoma.beam:
 	./rebar get-deps compile
 
 clean:
-	./rebar clean
+	./rebar clean skip_deps=true
+	rm -f src/mysql_proto.erl
 
 test:
 	./rebar eunit skip_deps=true
