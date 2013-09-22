@@ -101,9 +101,12 @@ type_name(0) -> decimal;
 type_name(1) -> tiny;
 type_name(2) -> short;
 type_name(3) -> long;
+type_name(7) -> timestamp;
+type_name(8) -> longlong;
 type_name(15) -> varchar;
 type_name(16#fc) -> blob;
 type_name(16#fd) -> varstring;
+type_name(16#fe) -> string;
 type_name(T) -> T.
 
 
@@ -125,9 +128,9 @@ unpack_row([Column|Columns], Bin) ->
 
 unpack_value(#column{type = T, length = Length}, Bin) when 
   T == 1; T == 2; T == 3; T == 8; T == 9; T == 13 ->
-  Len = Length*8,
-  <<Val:Len/little>> = Bin,
-  Val;
+  % Len = Length*8,
+  % <<Val:Len/little>> = Bin,
+  binary_to_integer(Bin);
 
 unpack_value(_, Bin) ->
   Bin.
@@ -151,7 +154,7 @@ read_packet(Sock) ->
 send_packet(Sock, Number, Bin) ->
   case iolist_size(Bin) of
     Size when Size < 16#ffffff ->
-      io:format("out packet: ~p\n", [iolist_to_binary(Bin)]),
+      % io:format("out packet: ~p\n", [iolist_to_binary(Bin)]),
       ok = gen_tcp:send(Sock, [<<Size:24/unsigned-little, Number>>, Bin]);
     _ ->
       <<Command, Rest/binary>> = iolist_to_binary(Bin),

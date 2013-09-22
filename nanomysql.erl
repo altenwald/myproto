@@ -52,5 +52,5 @@ print_columns(Columns) ->
   io:format("~s\n---\n", [ string:join([io_lib:format("~s(~p)",[C,T]) || {C,T} <- Columns], ",")]).
 
 print_rows(Rows) ->
-  [io:format("~s\n", [ string:join([io_lib:format("~s",[C]) || C <- Row],",")]) || Row <- Rows].
+  [io:format("~s\n", [ string:join([io_lib:format("~p",[C]) || C <- Row],",")]) || Row <- Rows].
 

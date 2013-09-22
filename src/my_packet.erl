@@ -138,14 +138,14 @@ encode_column(#column{
 
 encode_rows(Rows, Cols, Id) ->
     lists:foldl(fun(Values, {NewId, Data}) ->
-        Payload = lists:foldl(fun({#column{type = Type, length = Length}, Cell}, Binary) ->
+        Payload = lists:foldl(fun({#column{type = Type}, Cell}, Binary) ->
             Cell1 = case Type of
                 T when T == ?TYPE_TINY;
                        T == ?TYPE_SHORT;
                        T == ?TYPE_LONG;
                        T == ?TYPE_LONGLONG;
                        T == ?TYPE_INT24;
-                       T == ?TYPE_YEAR -> my_datatypes:number_to_fix_integer(Length, Cell);
+                       T == ?TYPE_YEAR -> integer_to_binary(Cell);
                 _ when is_binary(Cell) -> Cell
             end,
             CellEnc = my_datatypes:binary_to_varchar(Cell1),
