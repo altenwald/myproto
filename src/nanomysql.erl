@@ -13,8 +13,8 @@ connect(URL) ->
 
   {ok, Sock} = gen_tcp:connect(Host, Port, [binary,{active,false}]),
   
-  {ok, 0, <<ProtoVersion, Rest1/binary>>} = read_packet(Sock),
-  [ServerVersion, <<ThreadId:32/little, Scramble1:8/binary, 0, _Caps1:16, Charset, _Status:16, _Caps2:16,
+  {ok, 0, <<_ProtoVersion, Rest1/binary>>} = read_packet(Sock),
+  [_ServerVersion, <<_ThreadId:32/little, Scramble1:8/binary, 0, _Caps1:16, Charset, _Status:16, _Caps2:16,
     AuthLen, _Reserve1:10/binary, Scramble2:13/binary, _Rest2/binary>>] = binary:split(Rest1, <<0>>),
   21 = AuthLen,
   <<Scramble:20/binary, _/binary>> = <<Scramble1/binary, Scramble2/binary>>,
@@ -40,37 +40,54 @@ connect(URL) ->
   {ok, Sock}.
 
 
-
+-record(column, {
+  name,
+  type,
+  length
+}).
 
 execute(Query, Sock) ->
   send_packet(Sock, 0, [3, Query]),
   {ok, _, <<Cols>>} = read_packet(Sock),
   Columns = [begin
     {ok, _, FieldBin} = read_packet(Sock),
-    {_, B1} = lenenc_str(FieldBin),
-    {_, B2} = lenenc_str(B1),
-    {_, B3} = lenenc_str(B2),
-    {_, B4} = lenenc_str(B3),
-    {Field, _} = lenenc_str(B4),
-    Field
+    {_, B1} = lenenc_str(FieldBin), % Catalog
+    {_, B2} = lenenc_str(B1),       % schema
+    {_, B3} = lenenc_str(B2),       % table
+    {_, B4} = lenenc_str(B3),       % org_table
+    {Field, B5} = lenenc_str(B4),   % column name
+    {_, B6} = lenenc_str(B5),       % org_name
+    <<16#0c, _Charset:16/little, Length:32/little, Type:8, _/binary>> = B6,
+    #column{name = Field, type = Type, length = Length}
   end || _ <- lists:seq(1,Cols)],
   {ok, _, <<254, _/binary>>} = read_packet(Sock),
 
-  Rows = read_rows(Sock),
-  {ok, {Columns, Rows}}.
+  Rows = read_rows(Columns, Sock),
+  {ok, {[Field || #column{name = Field} <- Columns], Rows}}.
 
 
-read_rows(Sock) ->
+read_rows(Columns, Sock) ->
   case read_packet(Sock) of
     {ok, _, <<254,_/binary>>} -> [];
-    {ok, _, Row} -> [unpack_row(Row)|read_rows(Sock)]
+    {ok, _, Row} -> [unpack_row(Columns, Row)|read_rows(Columns, Sock)]
   end.
 
-unpack_row(<<>>) -> [];
-unpack_row(<<16#FB, Rest/binary>>) -> [undefined|unpack_row(Rest)];
-unpack_row(Bin) -> 
+unpack_row([], <<>>) -> [];
+unpack_row([_|Columns], <<16#FB, Rest/binary>>) -> [undefined|unpack_row(Columns, Rest)];
+unpack_row([Column|Columns], Bin) -> 
   {Value, Rest} = lenenc_str(Bin),
-  [Value|unpack_row(Rest)].
+  Val = unpack_value(Column, Value),
+  [Val|unpack_row(Columns, Rest)].
+
+
+unpack_value(#column{type = T, length = Length}, Bin) when 
+  T == 1; T == 2; T == 3; T == 8; T == 9; T == 13 ->
+  Len = Length*8,
+  <<Val:Len/little>> = Bin,
+  Val;
+
+unpack_value(_, Bin) ->
+  Bin.
 
 
 

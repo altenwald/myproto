@@ -41,7 +41,7 @@ encode(#response{
         status_flags=?SERVER_STATUS_AUTOCOMMIT
     }),
     %% rows
-    {IdEnd, RowsPack} = encode_row(Rows, IdEof+1),
+    {IdEnd, RowsPack} = encode_rows(Rows, Cols, IdEof+1),
     %% eof
     RowsEof = encode(#response{
         status=?STATUS_EOF,
@@ -124,12 +124,21 @@ encode_column(#column{
     PayloadLen = byte_size(Payload),
     <<PayloadLen:24/little, Id:8, Payload/binary>>.
 
-encode_row(Rows, Id) ->
-    lists:foldl(fun(Cols, {NewId, Data}) ->
-        Payload = lists:foldl(fun(Cell, Col) ->
-            CellEnc = my_datatypes:binary_to_varchar(Cell), 
-            <<Col/binary, CellEnc/binary>>
-        end, <<"">>, Cols),
+encode_rows(Rows, Cols, Id) ->
+    lists:foldl(fun(Values, {NewId, Data}) ->
+        Payload = lists:foldl(fun({#column{type = Type, length = Length}, Cell}, Binary) ->
+            Cell1 = case Type of
+                T when T == ?TYPE_TINY;
+                       T == ?TYPE_SHORT;
+                       T == ?TYPE_LONG;
+                       T == ?TYPE_LONGLONG;
+                       T == ?TYPE_INT24;
+                       T == ?TYPE_YEAR -> my_datatypes:number_to_fix_integer(Length, Cell);
+                _ when is_binary(Cell) -> Cell
+            end,
+            CellEnc = my_datatypes:binary_to_varchar(Cell1),
+            <<Binary/binary, CellEnc/binary>>
+        end, <<"">>, lists:zip(Cols,Values)),
         Length = byte_size(Payload),
         {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
     end, {Id, <<"">>}, Rows).

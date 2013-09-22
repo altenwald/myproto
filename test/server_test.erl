@@ -21,6 +21,11 @@ select_simple_test() ->
     {ok, Sock} = nanomysql:connect("mysql://user:pass@127.0.0.1:"++integer_to_list(ListenPort)++"/dbname"),
     Query1 = "SELECT input,output FROM minute_stats WHERE source='net' AND time >= '2013-09-05' AND time < '2013-09-06'",
     {ok, {Columns1, Rows1}} = nanomysql:execute(Query1, Sock),
+    Columns1 = [<<"input">>, <<"output">>],
+    [
+      [<<"20">>,20],
+      [<<"30">>,30]
+    ] = Rows1,
     ok
   end),
   {ok, Sock} = gen_tcp:accept(LSocket),
@@ -41,11 +46,11 @@ select_simple_test() ->
   ResponseFields = {
     [
       #column{name = <<"input">>, type=?TYPE_VARCHAR, length=20},
-      #column{name = <<"output">>, type=?TYPE_LONG, length = 20}
+      #column{name = <<"output">>, type=?TYPE_LONG, length = 8}
     ],
     [
-      [<<"20">>, <<"20">>],
-      [<<"30">>, <<"30">>]
+      [<<"20">>, 20],
+      [<<"30">>, 30]
     ]
   },
   Response = #response{status=?STATUS_OK, info = ResponseFields},

@@ -30,14 +30,14 @@ binary_to_varchar(Binary) ->
 
 -spec fix_integer_to_number(Size::integer(), Data::integer()) -> integer().
 
-fix_integer_to_number(Size, Data) when is_integer(Size) andalso is_integer(Data) ->
+fix_integer_to_number(Size, Data) when is_integer(Size) andalso is_binary(Data) ->
 	BitSize = Size * 8,
 	<<Num:BitSize/little>> = Data,
 	Num.
 
 -spec number_to_fix_integer(Size::integer(), Data::binary()) -> binary().
 
-number_to_fix_integer(Size, Data) when is_integer(Size) andalso is_binary(Data) ->
+number_to_fix_integer(Size, Data) when is_integer(Size) andalso is_integer(Data) ->
 	BitSize = Size * 8,
 	<<Data:BitSize/little>>.
 
