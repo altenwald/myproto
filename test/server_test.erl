@@ -24,7 +24,8 @@ select_simple_test() ->
     [{<<"input">>,_}, {<<"output">>,_}] = Columns1,
     [
       [<<"20">>,20],
-      [<<"30">>,30]
+      [<<"30">>,30],
+      [<<"40">>,undefined]
     ] = Rows1,
     ok
   end),
@@ -51,7 +52,8 @@ select_simple_test() ->
     ],
     [
       [<<"20">>, 20],
-      [<<"30">>, 30]
+      [<<"30">>, 30],
+      [<<"40">>, undefined]
     ]
   },
   Response = #response{status=?STATUS_OK, info = ResponseFields},

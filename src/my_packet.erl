@@ -140,6 +140,7 @@ encode_rows(Rows, Cols, Id) ->
     lists:foldl(fun(Values, {NewId, Data}) ->
         Payload = lists:foldl(fun({#column{type = Type}, Cell}, Binary) ->
             Cell1 = case Type of
+                _ when Cell == undefined -> undefined;
                 T when T == ?TYPE_TINY;
                        T == ?TYPE_SHORT;
                        T == ?TYPE_LONG;
@@ -148,7 +149,10 @@ encode_rows(Rows, Cols, Id) ->
                        T == ?TYPE_YEAR -> integer_to_binary(Cell);
                 _ when is_binary(Cell) -> Cell
             end,
-            CellEnc = my_datatypes:binary_to_varchar(Cell1),
+            CellEnc = case Cell of
+                undefined -> <<16#FB>>;
+                _ -> my_datatypes:binary_to_varchar(Cell1)
+            end,
             <<Binary/binary, CellEnc/binary>>
         end, <<"">>, lists:zip(Cols,Values)),
         Length = byte_size(Payload),
