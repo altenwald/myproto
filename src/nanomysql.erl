@@ -32,6 +32,7 @@ connect(URL) ->
       [size(SHA), crypto:exor(Digest1, SHA) ]
   end,
 
+  % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
   send_packet(Sock, 1, [<<16#4003F7CF:32/little, (MaxPacket-1):32/little, Charset>>, binary:copy(<<0>>, 23), 
     [User, 0], Auth, DBName, 0]),
 

@@ -158,27 +158,79 @@ decode_auth(<<Bin/binary>>) ->
     {more, 4 - size(Bin)}.
 
 
-decode_auth0(<<Caps:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:23/binary, Info/binary>>) ->
-    case binary:split(Info, <<0>>) of 
-        [User, <<20:8, Password:20/binary, PlugIn/binary>>] ->
-            UserData = #user{
-                name=User, 
-                password=Password, 
-                plugin=PlugIn, 
-                capabilities=Caps, 
-                charset=Charset
-            };
-        [User, <<0:8, PlugIn/binary>>] ->
-            UserData = #user{
-                name=User,
-                password=undefined,
-                plugin=PlugIn,
-                capabilities=Caps,
-                charset=Charset
-            }
+decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:23/binary, Info0/binary>>) ->
+    Caps = unpack_caps(CapsFlag),
+    {User, Info1} = unpack_zero(Info0),
+
+    {Password,Info2} = case proplists:get_value(auth_lenenc_client_data,Caps) of
+        true -> my_datatypes:read_lenenc_string(Info1);
+        _ ->
+            case proplists:get_value(secure_connection, Caps) of
+                true ->
+                    <<PassLen, Pass:PassLen/binary, R/binary>> = Info1,
+                    {Pass, R};
+                false ->
+                    unpack_zero(Info1)
+            end
     end,
+    {_DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
+        % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
+        % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
+        % true ->
+        %     unpack_zero(Info2);
+        _ ->
+            {undefined, Info2}
+    end,
+    {Plugin, _Info4} = case proplists:get_value(plugin_auth, Caps) of
+        true ->
+            unpack_zero(Info3);
+        _ ->
+            {undefined, Info3}
+    end,
+    UserData = #user{
+        name=User, 
+        password=Password, 
+        plugin=Plugin,
+        capabilities=Caps,
+        charset=Charset
+    },
     #request{command=?COM_AUTH, info=UserData}.
 
+unpack_zero(String) ->
+    [B1, B2] = binary:split(String, <<0>>),
+    {B1, B2}.
+
+
+unpack_caps(Flag) ->
+    Caps = [
+        {?CLIENT_LONG_PASSWORD,long_password},
+        {?CLIENT_FOUND_ROWS,found_rows},
+        {?CLIENT_LONG_FLAG, long_flag},
+        {?CLIENT_CONNECT_WITH_DB, connect_with_db},
+        {?CLIENT_NO_SCHEMA, no_schema},
+        {?CLIENT_COMPRESS, compress},
+        {?CLIENT_ODBC, odbc},
+        {?CLIENT_LOCAL_FILES, local_files},
+        {?CLIENT_IGNORE_SPACE, ignore_space},
+        {?CLIENT_PROTOCOL_41, protocol_41},
+        {?CLIENT_INTERACTIVE, interactive},
+        {?CLIENT_SSL, ssl},
+        {?CLIENT_IGNORE_SIGPIPE, ignore_sigpipe},
+        {?CLIENT_TRANSACTIONS, transactions},
+        {?CLIENT_SECURE_CONNECTION, secure_connection},
+        {?CLIENT_MULTI_STATEMENTS, multi_statements},
+        {?CLIENT_MULTI_RESULTS, multi_results},
+        {?CLIENT_PS_MULTI_RESULTS, ps_multi_results},
+        {?CLIENT_PLUGIN_AUTH, plugin_auth},
+        {?CLIENT_CONNECT_ATTRS, connect_attrs},
+        {?CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA, auth_lenenc_client_data}
+    ],
+    lists:flatmap(fun({I,Tag}) ->
+        case Flag band I of
+            0 -> [];
+            _ -> [Tag]
+        end
+    end, Caps).
 
 
 -spec decode(binary()) -> {ok, response(), binary()} | {more, binary()}.

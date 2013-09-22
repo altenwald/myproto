@@ -1,19 +1,17 @@
 -module(my_ranch_worker).
 
--export([start_server/3, start_link/4, init_server/4]).
+-export([start_server/4, stop_server/1, start_link/4, init_server/4]).
 
 -export([handle_call/3, handle_info/2, terminate/2]).
 -include("../include/myproto.hrl").
 
 
-start_server(Port, Handler, Args) ->
+start_server(Port, Name, Handler, Args) ->
   application:start(ranch),
-  Name = list_to_atom(io_lib:format("my_server_~s:~p", [Handler, Port])),
-  Spec = ranch:child_spec(Name, 10, ranch_tcp, [{port, Port},{backlog,4096},{max_connections,32768}], ?MODULE, [Handler, Args]),
-  case supervisor:start_child(myproto_sup, Spec) of
-    {ok, Pid} -> {ok, Pid};
-    {error, {already_started, Pid}} -> {ok, Pid}
-  end.
+  ranch:start_listener(Name, 10, ranch_tcp, [{port, Port},{backlog,4096},{max_connections,32768}], ?MODULE, [Handler, Args]).
+
+stop_server(Name) ->
+  ranch:stop_listener(Name).
 
 
 start_link(ListenerPid, Socket, _Transport, [Handler, Args]) ->
@@ -54,7 +52,12 @@ handle_call(Call, _From, #server{} = Server) ->
 handle_info({tcp, Socket, Bin}, #server{my = My} = Server) ->
   My1 = my_protocol:buffer_bytes(Bin, My),
   inet:setopts(Socket, [{active, once}]),
-  handle_packets(Server#server{my = My1});
+  try handle_packets(Server#server{my = My1})
+  catch
+    Class:Error -> 
+      lager:info("~p:~p during handling mysql:\n~p\n", [Class, Error, erlang:get_stacktrace()]),
+      {stop, normal, Server}
+  end;
 
 handle_info({tcp_closed, _Socket}, #server{} = Server) ->
   {stop, normal, Server};

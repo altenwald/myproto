@@ -146,7 +146,6 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
                 {noreply, NewHandlerState} ->
                     {next_state, normal, NewStateData#state{handler_state=NewHandlerState}};
                 {reply, Response, NewHandlerState} ->
-                    lager:debug("Response: ~p~n", [Response]),
                     gen_tcp:send(Socket, my_packet:encode(
                         Response#response{id = Id+1}
                     )),

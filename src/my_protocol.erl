@@ -61,6 +61,11 @@ hello(ConnectionId, #my{} = My) when is_integer(ConnectionId) ->
   send_or_reply(Hello, My#my{connection_id = ConnectionId, hash = Hash, state = auth, id = 2}).
 
 
+
+
+send_or_reply(ok, #my{} = My) ->
+  ok(My);
+
 send_or_reply(#response{id = 0} = Response, #my{id = Id} = My) ->
   send_or_reply(my_packet:encode(Response#response{id = Id}), My#my{id = Id+1});
 
@@ -144,23 +149,37 @@ decode(#my{buffer = Bin, state = normal, parse_query = ParseQuery, query_buffer 
         _ -> <<QB/binary, Info/binary>>
       end,
       decode(My#my{buffer = Rest, query_buffer = QB1});
-    {ok, #request{continue = false, info = Info, command = Command} = Packet, Rest} ->
+    {ok, #request{continue = false, info = Info, command = CommandCode, id = Id} = Packet, Rest} ->
       Query = case QB of
         <<>> -> Info;
         _ -> <<QB/binary, Info/binary>>
       end,
+      Command = case CommandCode of
+        ?COM_SLEEP -> sleep;
+        ?COM_QUIT -> quit;
+        ?COM_INIT_DB -> init_db;
+        ?COM_QUERY -> 'query';
+        ?COM_FIELD_LIST -> field_list;
+        ?COM_CREATE_DB -> create_db;
+        ?COM_DROP_DB -> drop_db;
+        ?COM_REFRESH -> refresh;
+        ?COM_SHUTDOWN -> shutdown;
+        ?COM_STATISTICS -> statistics;
+        Else -> Else
+      end,
+
       Packet1 = case Command of
-        ?COM_QUERY when ParseQuery ->
+        'query' when ParseQuery ->
           SQL = case mysql_proto:parse(Query) of
             {fail,Expected} -> {parse_error, {fail,Expected}, Info};
             % {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
             Parsed -> Parsed
           end,
-          Packet#request{info = SQL};
+          Packet#request{command = Command, info = SQL};
         _ ->
-          Packet#request{info = Query}
+          Packet#request{command = Command, info = Query}
       end,
-      {ok, Packet1, My#my{buffer = Rest}}
+      {ok, Packet1, My#my{buffer = Rest, id = Id + 1}}
   end;
 
 decode(#my{} = My) ->

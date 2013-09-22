@@ -136,7 +136,7 @@
 
 -record(request, {
 	command :: integer(),
-	info :: string() | sql() | user(),
+	info :: binary() | sql() | user(),
 	continue = false :: boolean(),
 	id = 0 :: integer()
 }).

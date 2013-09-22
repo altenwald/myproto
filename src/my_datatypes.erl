@@ -4,10 +4,18 @@
 	string_nul_to_binary/1,
 	binary_to_varchar/1,
 	fix_integer_to_number/2, number_to_fix_integer/2,
-	var_integer_to_number/1, number_to_var_integer/1
+	var_integer_to_number/1, number_to_var_integer/1,
+	read_lenenc_string/1
 ]).
 
 -include("../include/myproto.hrl").
+
+
+read_lenenc_string(<<16#fc, Len:16/little, Bin:Len/binary, Rest/binary>>) -> {Bin, Rest};
+read_lenenc_string(<<16#fd, Len:24/little, Bin:Len/binary, Rest/binary>>) -> {Bin, Rest};
+read_lenenc_string(<<16#fe, Len:64/little, Bin:Len/binary, Rest/binary>>) -> {Bin, Rest};
+read_lenenc_string(<<Len:8/little, Bin:Len/binary, Rest/binary>>) -> {Bin, Rest}.
+
 
 %% String.NUL
 
