@@ -126,7 +126,7 @@ unpack_row([Column|Columns], Bin) ->
   [Val|unpack_row(Columns, Rest)].
 
 
-unpack_value(#column{type = T, length = Length}, Bin) when 
+unpack_value(#column{type = T}, Bin) when 
   T == 1; T == 2; T == 3; T == 8; T == 9; T == 13 ->
   % Len = Length*8,
   % <<Val:Len/little>> = Bin,
