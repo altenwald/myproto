@@ -40,7 +40,11 @@ init_server(ListenerPid, Socket, Handler, _Args) ->
       {ok, My3} = my_protocol:ok(My2),
       inet:setopts(Socket, [{active,once}]),
       State = #server{handler = Handler, state = HandlerState, socket = Socket, my = My3},
-      gen_server:enter_loop(?MODULE, [], State)
+      gen_server:enter_loop(?MODULE, [], State);
+    {error, Reason} ->
+      my_protocol:error(Reason, My2);
+    {error, Code, Reason} ->
+      my_protocol:error(Code, Reason, My2)
   end.
 
 handle_call(Call, _From, #server{} = Server) ->

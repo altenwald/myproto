@@ -15,7 +15,7 @@
 
 -export([init/0, init/1]).
 -export([decode/2, decode/1, buffer_bytes/2]).
--export([send_or_reply/2, hello/2, ok/1]).
+-export([send_or_reply/2, hello/2, ok/1, error/2, error/3]).
 -export([next_packet/1]).
 
 
@@ -76,7 +76,7 @@ send_or_reply(Bin, #my{socket = Socket} = My) when is_binary(Bin) ->
 
 
 
--spec ok(my()) -> {ok, Reply::binary(), my()}.
+-spec ok(my()) -> {ok, Reply::binary(), my()} | {ok, my()}.
 
 ok(#my{} = My) ->
   Response = #response{
@@ -84,6 +84,26 @@ ok(#my{} = My) ->
     status_flags = ?SERVER_STATUS_AUTOCOMMIT
   },
   send_or_reply(Response, My).
+
+
+
+-spec error(Reason::binary(), my()) -> {ok, Reply::binary(), my()} | {ok, my()}.
+
+error(Reason, #my{} = My) when is_binary(Reason) ->
+  error(1045, Reason, My).
+
+
+-spec error(Code::non_neg_integer(), Reason::binary(), my()) -> {ok, Reply::binary(), my()} | {ok, my()}.
+
+error(Code, Reason, #my{} = My) when is_integer(Code), is_binary(Reason) ->
+  Response = #response{
+    status = ?STATUS_ERR,
+    error_code = Code,
+    info = Reason
+  },
+  send_or_reply(Response, My).
+
+
 
 
 

@@ -35,9 +35,12 @@ connect(URL) ->
   send_packet(Sock, 1, [<<16#4003F7CF:32/little, (MaxPacket-1):32/little, Charset>>, binary:copy(<<0>>, 23), 
     [User, 0], Auth, DBName, 0]),
 
-  {ok, 2, <<0,_/binary>> = _AuthReply} = read_packet(Sock),
-
-  {ok, Sock}.
+  case read_packet(Sock) of
+    {ok, 2, <<0,_/binary>> = _AuthReply} ->
+      {ok, Sock};
+    {error, _} = Error ->
+      Error
+  end.
 
 
 -record(column, {

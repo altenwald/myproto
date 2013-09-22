@@ -28,6 +28,7 @@ select_simple_test() ->
     ] = Rows1,
     ok
   end),
+  erlang:monitor(process, Client),
   {ok, Sock} = gen_tcp:accept(LSocket),
   My0 = my_protocol:init([{socket,Sock}]),
   {ok, My1} = my_protocol:hello(42, My0),
@@ -55,5 +56,29 @@ select_simple_test() ->
   },
   Response = #response{status=?STATUS_OK, info = ResponseFields},
   {ok, My5} = my_protocol:send_or_reply(Response, My4),
+  receive {'DOWN', _, _, Client, Reason} -> normal = Reason end,
   ok.
+
+
+
+
+reject_password_test() ->
+  {ok, LSocket} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
+  {ok, ListenPort} = inet:port(LSocket),
+  Client = spawn_link(fun() ->
+    {error,{1045,<<"password rejected">>}} = nanomysql:connect("mysql://user:pass@127.0.0.1:"++integer_to_list(ListenPort)++"/dbname"),
+    ok
+  end),
+  erlang:monitor(process, Client),
+  {ok, Sock} = gen_tcp:accept(LSocket),
+  My0 = my_protocol:init([{socket,Sock}]),
+  {ok, My1} = my_protocol:hello(42, My0),
+  {ok, #request{info = #user{}}, My2} = my_protocol:next_packet(My1),
+  {ok, My3} = my_protocol:error(<<"password rejected">>, My2),
+
+  receive {'DOWN', _, _, Client, Reason} -> normal = Reason end,
+  ok.
+
+
+
 
