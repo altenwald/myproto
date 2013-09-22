@@ -80,5 +80,36 @@ reject_password_test() ->
   ok.
 
 
+very_long_query_test() ->
+  Value = binary:copy(<<"0123456789">>, 2177721),
+  Query = iolist_to_binary(["INSERT INTO photos (data) VALUES ('", Value, "')"]),
+
+  {ok, LSocket} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
+  {ok, ListenPort} = inet:port(LSocket),
+  Client = spawn_link(fun() ->
+    {ok, Sock} = nanomysql:connect("mysql://user:pass@127.0.0.1:"++integer_to_list(ListenPort)++"/dbname"),
+    nanomysql:execute(Query, Sock),
+    ok
+  end),
+  erlang:monitor(process, Client),
+  {ok, Sock} = gen_tcp:accept(LSocket),
+  My0 = my_protocol:init([{socket,Sock},{parse_query,false}]),
+  {ok, My1} = my_protocol:hello(42, My0),
+  {ok, #request{info = #user{}}, My2} = my_protocol:next_packet(My1),
+  {ok, My3} = my_protocol:ok(My2),
+
+  {ok, #request{info = Query}, My4} = my_protocol:next_packet(My3),
+
+  ResponseFields = {
+    [#column{name = <<"id">>, type=?TYPE_LONG, length = 8}],
+    [[20]]
+  },
+  Response = #response{status=?STATUS_OK, info = ResponseFields},
+  {ok, My5} = my_protocol:send_or_reply(Response, My4),
+
+
+  % receive {'DOWN', _, _, Client, Reason} -> normal = Reason end,
+  ok.
+
 
 

@@ -109,7 +109,23 @@ read_packet(Sock) ->
 
 
 send_packet(Sock, Number, Bin) ->
-  ok = gen_tcp:send(Sock, [<<(iolist_size(Bin)):24/little, Number>>, Bin]).
+  case iolist_size(Bin) of
+    Size when Size < 16#ffffff ->
+      ok = gen_tcp:send(Sock, [<<Size:24/unsigned-little, Number>>, Bin]);
+    _ ->
+      <<Command, Rest/binary>> = iolist_to_binary(Bin),
+      send_multi_packet(Sock, Number, Command, Rest)
+  end.
+
+send_multi_packet(Sock, Number, Command, <<Bin:16#fffffe/binary, Rest/binary>>) ->
+  ok = gen_tcp:send(Sock, [<<16#ffffff:24/unsigned-little, Number, Command>>, Bin]),
+  send_multi_packet(Sock, Number, Command, Rest);
+
+send_multi_packet(Sock, Number, Command, Bin) ->
+  Size = size(Bin) + 1,
+  ok = gen_tcp:send(Sock, [<<Size:24/unsigned-little, Number, Command>>, Bin]).
+
+
 
 
 

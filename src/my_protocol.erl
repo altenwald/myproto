@@ -25,6 +25,7 @@
   state :: auth | normal,
   parse_query = true :: boolean(),    %% parse query or not
   buffer :: undefined | binary(),
+  query_buffer = <<>> :: binary(),    %% buffer for long queries
   socket :: undefined | inet:socket(), %% When socket is set, client will send data
   id = 1 :: non_neg_integer()
 }).
@@ -133,12 +134,33 @@ decode(#my{buffer = Bin, state = auth, hash = Hash} = My) when size(Bin) > 4 ->
       {ok, Req#request{info = User#user{server_hash = Hash}}, My#my{state = normal, buffer = Rest}}
   end;
 
-decode(#my{buffer = Bin, state = normal} = My) when size(Bin) > 4 ->
-  case my_packet:decode_auth(Bin) of
+decode(#my{buffer = Bin, state = normal, parse_query = ParseQuery, query_buffer = QB} = My) when size(Bin) > 4 ->
+  case my_packet:decode(Bin) of
     {more, _} ->
       {more, My};
-    {ok, Reply, Rest} ->
-      {ok, Reply, My#my{buffer = Rest}}
+    {ok, #request{continue = true, info = Info}, Rest} ->
+      QB1 = case QB of
+        <<>> -> Info;
+        _ -> <<QB/binary, Info/binary>>
+      end,
+      decode(My#my{buffer = Rest, query_buffer = QB1});
+    {ok, #request{continue = false, info = Info, command = Command} = Packet, Rest} ->
+      Query = case QB of
+        <<>> -> Info;
+        _ -> <<QB/binary, Info/binary>>
+      end,
+      Packet1 = case Command of
+        ?COM_QUERY when ParseQuery ->
+          SQL = case mysql_proto:parse(Query) of
+            {fail,Expected} -> {parse_error, {fail,Expected}, Info};
+            % {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
+            Parsed -> Parsed
+          end,
+          Packet#request{info = SQL};
+        _ ->
+          Packet#request{info = Query}
+      end,
+      {ok, Packet1, My#my{buffer = Rest}}
   end;
 
 decode(#my{} = My) ->
@@ -149,27 +171,15 @@ decode(#my{} = My) ->
 
 
 
-next_packet(#my{buffer = undefined, socket = Socket, state = State, parse_query = ParseQuery} = My) when Socket =/= undefined ->
+next_packet(#my{buffer = Buffer, socket = Socket} = My) when Socket =/= undefined andalso (Buffer == undefined orelse Buffer == <<>>) ->
   case gen_tcp:recv(Socket, 4) of
-    {ok, <<Length:24/little, _>> = Header} ->
+    {ok, <<Length:24/unsigned-little, _>> = Header} ->
       case gen_tcp:recv(Socket, Length) of
-        {ok, Bin} when size(Bin) == Length andalso State == normal ->
-          {ok, #request{info = Info, command = Command} = Packet, <<>>} = my_packet:decode(<<Header/binary, Bin/binary>>),
-          Packet1 = case Command of
-            ?COM_QUERY when ParseQuery ->
-              SQL = case mysql_proto:parse(Info) of
-                {fail,Expected} -> {parse_error, {fail,Expected}, Info};
-                {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
-                Parsed -> Parsed
-              end,
-              Packet#request{info = SQL};
-            _ ->
-              Packet
-          end,
-          {ok, Packet1, My};
-        {ok, Bin} when size(Bin) == Length andalso State == auth ->
-          {ok, Packet, <<>>} = my_packet:decode_auth(<<Header/binary, Bin/binary>>),
-          {ok, Packet, My#my{state = normal}};
+        {ok, Bin} when size(Bin) == Length ->
+          case decode(<<Header/binary, Bin/binary>>, My) of
+            {more, My1} -> next_packet(My1);
+            {ok, Response, My1} -> {ok, Response, My1}
+          end;
         {error, _} = Error ->
           Error
       end;
