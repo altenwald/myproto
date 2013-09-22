@@ -17,7 +17,11 @@ desc_query <- space? describe space table space? `
 
 % --------------- SHOW
 
-show_query <- show_tables_from / show_tables / show_databases ~;
+show_query <- show_status / show_tables_from / show_tables / show_databases ~;
+
+show_status <- space? show space table_keyword space status space like space string space? `
+    #show{type=status, from=lists:nth(10, Node)}
+`;
 
 show_tables <- space? show (space full)? space (tables_keyword / schemas) space? `
     case Node of
@@ -148,7 +152,7 @@ table_value <- key `
     #table{name=Node, alias=Node}
 `;
 
-comparator <- '<=' / '=<' / '=>' / '>=' / '<>' / '!=' / '<' / '>' / '=' `
+comparator <- '<=' / '=<' / '=>' / '>=' / '<>' / '!=' / '<' / '>' / '=' / like `
 case Node of
     <<"<=">> -> lte;
     <<"=<">> -> lte;
@@ -158,7 +162,8 @@ case Node of
     <<"<>">> -> neq;
     <<"<">> -> lt;
     <<">">> -> gt;
-    <<"=">> -> eq
+    <<"=">> -> eq;
+    like -> like
 end
 `;
 
@@ -268,6 +273,8 @@ primary <- par:("(" space? add:additive space? ")") / dec:param_wa `
 
 % ------------- reserved words
 
+status <- #(?i)status# `status`;
+like <- #(?i)like# `like`;
 use <- #(?i)use# `use`;
 describe <- #(?i)desc# / #(?i)describe# `describe`;
 limit <- #(?i)limit# `limit`;
@@ -276,6 +283,7 @@ full <- #(?i)full# `full`;
 schemas <- #(?i)schemas# `schemas`;
 show <- #(?i)show# `show`;
 tables_keyword <- #(?i)tables# `tables`;
+table_keyword <- #(?i)table# `table`;
 databases <- #(?i)databases# `databases`;
 update <- #(?i)update# `update`;
 select <- #(?i)select# `select`;

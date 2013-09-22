@@ -100,19 +100,30 @@ encode_column(Cols, Id) when is_list(Cols) ->
     end, {Id, <<"">>}, Cols);
 encode_column(#column{
         schema = Schema, table = Table, name = Name,
-        charset = Charset, length = Length, type = Type,
-        flags = Flags, decimals = Decimals
-    }, Id) ->
+        charset = Charset, length = L, type = Type,
+        flags = Flags, decimals = Decimals, org_name = ON
+    }=Column, Id) ->
     SchemaLen = my_datatypes:number_to_var_integer(byte_size(Schema)),
     TableLen = my_datatypes:number_to_var_integer(byte_size(Table)),
     NameLen = my_datatypes:number_to_var_integer(byte_size(Name)),
+    {OrgNameLen, OrgName} = case ON of 
+        undefined -> {NameLen, bin_to_upper(Name)};
+        ON -> {my_datatypes:number_to_var_integer(byte_size(ON)), ON}
+    end,
+    Length = case {Type, L} of 
+        _ when is_integer(L) -> L;
+        {?TYPE_DATETIME,undefined} -> 16#13;
+        {?TYPE_LONGLONG,undefined} -> 16#15;
+        {_,undefined} -> 0
+    end,
+    lager:debug("Column to encode: ~p~n", [Column]),
     Payload = <<
         3:8, "def", 
         SchemaLen/binary, Schema/binary,
         TableLen/binary, Table/binary, % table
         TableLen/binary, Table/binary, % org_table
         NameLen/binary, Name/binary, % name
-        NameLen/binary, Name/binary, % org_name
+        OrgNameLen/binary, OrgName/binary, % org_name
         16#0c:8, Charset:16/little,
         Length:32/little, Type:8, Flags:16/little,
         Decimals:8/little,
@@ -124,7 +135,17 @@ encode_column(#column{
 encode_row(Rows, Id) ->
     lists:foldl(fun(Cols, {NewId, Data}) ->
         Payload = lists:foldl(fun(Cell, Col) ->
-            CellEnc = my_datatypes:binary_to_varchar(Cell), 
+            lager:debug("Row to encode: ~p~n", [Cell]),
+            CellEnc = if 
+                is_binary(Cell) -> my_datatypes:binary_to_varchar(Cell);
+                is_integer(Cell) -> my_datatypes:binary_to_varchar(
+                    list_to_binary(integer_to_list(Cell))
+                );
+                is_float(Cell) -> my_datatypes:binary_to_varchar(
+                    list_to_binary(float_to_list(Cell))
+                );  
+                Cell =:= undefined -> ?DATA_NULL
+            end,
             <<Col/binary, CellEnc/binary>>
         end, <<"">>, Cols),
         Length = byte_size(Payload),
@@ -175,3 +196,10 @@ decode(<<_Length:24/little, Id:8, Command:8, Info/binary>>) ->
         info=Info,
         continue=false
     }.
+
+bin_to_upper(Lower) when is_binary(Lower) ->
+    << <<(
+        if 
+            X >= $a andalso X =< $z -> X-32; 
+            true -> X end
+    )/integer>> || <<X>> <= Lower >>.

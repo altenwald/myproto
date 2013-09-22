@@ -121,6 +121,8 @@
 -define(CLIENT_CONNECT_ATTRS, 16#100000).
 -define(CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA, 16#200000).
 
+-define(DATA_NULL, (<<16#fb>>)).
+
 -include("sql.hrl").
 
 -record(request, {
@@ -159,6 +161,7 @@
 -record(column, {
 	schema = <<>> :: binary(),
 	table = <<>> :: binary(),
+	org_name :: binary(),
 	name :: binary(),
 	charset = ?UTF8_GENERAL_CI :: integer(),
 	length :: integer(),
