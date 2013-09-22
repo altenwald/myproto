@@ -1,6 +1,8 @@
 Overview
 ========
 
+[![Build Status](https://api.travis-ci.org/bosqueviejo/myproto.png)](https://travis-ci.org/manuel-rubio/myproto)
+
 MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
 
 Usage
