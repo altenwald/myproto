@@ -1,4 +1,4 @@
--define(SERVER_SIGN, "5.5-myproto").
+-define(SERVER_SIGN, <<"5.5-myproto">>).
 
 %% status flags
 -define(SERVER_STATUS_IN_TRANS, 16#0001).
@@ -125,24 +125,25 @@
 
 -include("sql.hrl").
 
--record(request, {
-	command :: integer(),
-	info :: string() | sql(),
-	continue = false :: boolean(),
-	id = 0 :: integer()
-}).
-
--type request() :: #request{}.
-
 -record(user, {
 	name :: binary(),
 	password :: binary(),
 	capabilities :: integer(),
 	plugin :: binary(),
-	charset :: binary()
+	charset :: binary(),
+	server_hash :: binary()
 }).
 
 -type user() :: #user{}.
+
+-record(request, {
+	command :: integer(),
+	info :: binary() | sql() | user(),
+	continue = false :: boolean(),
+	id = 0 :: integer()
+}).
+
+-type request() :: #request{}.
 
 -record(response, {
 	status = 0 :: integer(),

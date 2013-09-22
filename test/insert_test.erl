@@ -18,7 +18,7 @@ insert_simple_test() ->
         #insert{table = #table{name = <<"mitabla">>, alias = <<"mitabla">>}, values=[
             #value{value=1}, #value{value=2}, #value{value=3}
         ]},
-        mysql:parse("insert into mitabla values (1,2,3)")
+        mysql_proto:parse("insert into mitabla values (1,2,3)")
     ),
     ok.
 
@@ -32,14 +32,14 @@ insert_keys_test() ->
                        value = #value{value = <<"bonjovi">>}},
                   #set{key = <<"song">>,
                        value = #value{value = <<"these days">>}}]},
-        mysql:parse("insert into mitabla(id,author,song) values(1,'bonjovi', 'these days')")
+        mysql_proto:parse("insert into mitabla(id,author,song) values(1,'bonjovi', 'these days')")
     ),
     ok.
 
 insert_set_test() ->
     ?assertEqual(
-        mysql:parse("insert into mitabla(id,author,song) values(1,'bonjovi', 'these days')"),
-        mysql:parse("insert into mitabla set id=1, author='bonjovi', song='these days'")
+        mysql_proto:parse("insert into mitabla(id,author,song) values(1,'bonjovi', 'these days')"),
+        mysql_proto:parse("insert into mitabla set id=1, author='bonjovi', song='these days'")
     ),
     ok.
 

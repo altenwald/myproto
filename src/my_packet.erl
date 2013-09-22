@@ -27,6 +27,18 @@ encode(#response{
     Length = byte_size(Info) + 3,
     <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, Info/binary>>;
 encode(#response{
+        status=?STATUS_OK, id=Id, info={Cols}
+    }) ->
+    %% columns
+    {IdEof, ColsBin} = encode_column(Cols, Id),
+    %% eof
+    ColsEof = encode(#response{
+        status=?STATUS_EOF, 
+        id=IdEof, 
+        status_flags=?SERVER_STATUS_AUTOCOMMIT
+    }),
+    <<ColsBin/binary, ColsEof/binary>>;
+encode(#response{
         status=?STATUS_OK, id=Id, info={Cols, Rows}
     }) ->
     %% Column account
@@ -41,7 +53,7 @@ encode(#response{
         status_flags=?SERVER_STATUS_AUTOCOMMIT
     }),
     %% rows
-    {IdEnd, RowsPack} = encode_row(Rows, IdEof+1),
+    {IdEnd, RowsPack} = encode_rows(Rows, Cols, IdEof+1),
     %% eof
     RowsEof = encode(#response{
         status=?STATUS_EOF,
@@ -65,6 +77,7 @@ encode(#response{
 encode(#response{
         status=?STATUS_HELLO, id=Id, info=Hash
     }) ->
+    20 == size(Hash) orelse error({invalid_hash_size,size(Hash),need,20}),
     ServerSign = case application:get_env(myproto, server_sign) of
         {ok, SS} when is_binary(SS) -> SS;
         {ok, SS} when is_list(SS) -> list_to_binary(SS);
@@ -76,8 +89,8 @@ encode(#response{
         ?CLIENT_SECURE_CONNECTION bor %% for mysql_native_password
         0,
     <<CapsLow:16/little, CapsUp:16/little>> = <<Caps:32/little>>,
-    <<IntHash:160/little-unsigned-integer>> = Hash,
-    <<Auth1:8/binary, Auth2/binary>> = <<IntHash:160/little-unsigned-integer>>,
+    % <<IntHash:160/little-unsigned-integer>> = Hash,
+    <<Auth1:8/binary, Auth2/binary>> = Hash, %<<IntHash:160/little-unsigned-integer>>,
     LenAuth = 21,
     StatusFlags = 
         ?SERVER_STATUS_AUTOCOMMIT bor
@@ -102,7 +115,9 @@ encode_column(#column{
         schema = Schema, table = Table, name = Name,
         charset = Charset, length = L, type = Type,
         flags = Flags, decimals = Decimals, org_name = ON
-    }=Column, Id) ->
+    }=Column, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
+    is_integer(Charset), is_integer(Type), is_integer(Flags), 
+    is_integer(Decimals) ->
     SchemaLen = my_datatypes:number_to_var_integer(byte_size(Schema)),
     TableLen = my_datatypes:number_to_var_integer(byte_size(Table)),
     NameLen = my_datatypes:number_to_var_integer(byte_size(Name)),
@@ -132,64 +147,145 @@ encode_column(#column{
     PayloadLen = byte_size(Payload),
     <<PayloadLen:24/little, Id:8, Payload/binary>>.
 
-encode_row(Rows, Id) ->
-    lists:foldl(fun(Cols, {NewId, Data}) ->
-        Payload = lists:foldl(fun(Cell, Col) ->
-            lager:debug("Row to encode: ~p~n", [Cell]),
-            CellEnc = if 
-                is_binary(Cell) -> my_datatypes:binary_to_varchar(Cell);
-                is_integer(Cell) -> my_datatypes:binary_to_varchar(
-                    list_to_binary(integer_to_list(Cell))
-                );
-                is_float(Cell) -> my_datatypes:binary_to_varchar(
-                    list_to_binary(float_to_list(Cell))
-                );  
-                Cell =:= undefined -> ?DATA_NULL
+encode_rows(Rows, Cols, Id) ->
+    lists:foldl(fun(Values, {NewId, Data}) ->
+        Payload = lists:foldl(fun({#column{type = Type}, Cell}, Binary) ->
+            Cell1 = case Type of
+                _ when Cell == undefined -> undefined;
+                T when T == ?TYPE_TINY;
+                       T == ?TYPE_SHORT;
+                       T == ?TYPE_LONG;
+                       T == ?TYPE_LONGLONG;
+                       T == ?TYPE_INT24;
+                       T == ?TYPE_YEAR -> list_to_binary(integer_to_list(Cell));
+                _ when is_binary(Cell) -> Cell
             end,
-            <<Col/binary, CellEnc/binary>>
-        end, <<"">>, Cols),
+            CellEnc = case Cell of
+                undefined -> ?DATA_NULL;
+                _ -> my_datatypes:binary_to_varchar(Cell1)
+            end,
+            <<Binary/binary, CellEnc/binary>>
+        end, <<"">>, lists:zip(Cols,Values)),
         Length = byte_size(Payload),
         {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
     end, {Id, <<"">>}, Rows).
 
-decode_auth(<<
-    _Length:24/little, 1:8, Caps:32/little, _MaxPackSize:32/little, Charset:8, 
-    _Reserved:23/binary, Info/binary
->>) ->
-    case binary:split(Info, <<0>>) of 
-        [User, <<20:8, Password:20/binary, PlugIn/binary>>] ->
-            UserData = #user{
-                name=User, 
-                password=Password, 
-                plugin=PlugIn, 
-                capabilities=Caps, 
-                charset=Charset
-            };
-        [User, <<0:8, PlugIn/binary>>] ->
-            UserData = #user{
-                name=User,
-                password=undefined,
-                plugin=PlugIn,
-                capabilities=Caps,
-                charset=Charset
-            }
+
+
+-spec decode_auth(binary()) -> {ok, user(), binary()} | {more, binary()}.
+
+
+decode_auth(<<Length:24/little, 1:8, Bin:Length/binary, Rest/binary>>) ->
+    {ok, decode_auth0(Bin), Rest};
+
+decode_auth(<<Length:24/little, 1:8, Bin/binary>>) ->
+    {more, size(Bin) - Length};
+
+decode_auth(<<Bin/binary>>) ->
+    {more, 4 - size(Bin)}.
+
+
+decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:23/binary, Info0/binary>>) ->
+    Caps = unpack_caps(CapsFlag),
+    {User, Info1} = unpack_zero(Info0),
+
+    {Password,Info2} = case proplists:get_value(auth_lenenc_client_data,Caps) of
+        true -> my_datatypes:read_lenenc_string(Info1);
+        _ ->
+            case proplists:get_value(secure_connection, Caps) of
+                true ->
+                    <<PassLen, Pass:PassLen/binary, R/binary>> = Info1,
+                    {Pass, R};
+                false ->
+                    unpack_zero(Info1)
+            end
     end,
+    {_DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
+        % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
+        % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
+        % true ->
+        %     unpack_zero(Info2);
+        _ ->
+            {undefined, Info2}
+    end,
+    {Plugin, _Info4} = case proplists:get_value(plugin_auth, Caps) of
+        true ->
+            unpack_zero(Info3);
+        _ ->
+            {undefined, Info3}
+    end,
+    UserData = #user{
+        name=User, 
+        password=Password, 
+        plugin=Plugin,
+        capabilities=Caps,
+        charset=Charset
+    },
     #request{command=?COM_AUTH, info=UserData}.
 
-decode(<<_Length:24/little, Id:8, ?COM_FIELD_LIST:8, Info/binary>>) ->
+unpack_zero(String) ->
+    [B1, B2] = binary:split(String, <<0>>),
+    {B1, B2}.
+
+
+unpack_caps(Flag) ->
+    Caps = [
+        {?CLIENT_LONG_PASSWORD,long_password},
+        {?CLIENT_FOUND_ROWS,found_rows},
+        {?CLIENT_LONG_FLAG, long_flag},
+        {?CLIENT_CONNECT_WITH_DB, connect_with_db},
+        {?CLIENT_NO_SCHEMA, no_schema},
+        {?CLIENT_COMPRESS, compress},
+        {?CLIENT_ODBC, odbc},
+        {?CLIENT_LOCAL_FILES, local_files},
+        {?CLIENT_IGNORE_SPACE, ignore_space},
+        {?CLIENT_PROTOCOL_41, protocol_41},
+        {?CLIENT_INTERACTIVE, interactive},
+        {?CLIENT_SSL, ssl},
+        {?CLIENT_IGNORE_SIGPIPE, ignore_sigpipe},
+        {?CLIENT_TRANSACTIONS, transactions},
+        {?CLIENT_SECURE_CONNECTION, secure_connection},
+        {?CLIENT_MULTI_STATEMENTS, multi_statements},
+        {?CLIENT_MULTI_RESULTS, multi_results},
+        {?CLIENT_PS_MULTI_RESULTS, ps_multi_results},
+        {?CLIENT_PLUGIN_AUTH, plugin_auth},
+        {?CLIENT_CONNECT_ATTRS, connect_attrs},
+        {?CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA, auth_lenenc_client_data}
+    ],
+    lists:flatmap(fun({I,Tag}) ->
+        case Flag band I of
+            0 -> [];
+            _ -> [Tag]
+        end
+    end, Caps).
+
+
+-spec decode(binary()) -> {ok, response(), binary()} | {more, binary()}.
+
+decode(<<Length:24/little, Id, Bin:Length/binary, Rest/binary>>) ->
+    % lager:info("incoming packet: ~p", [Bin]),
+    {ok, decode0(Length, Id, Bin), Rest};
+
+decode(<<Length:24/little, _Id, Bin/binary>>) ->
+    {more, Length - size(Bin)};
+
+decode(<<Bin/binary>>) ->
+    {more, 4 - size(Bin)}.
+
+decode0(_, Id, <<?COM_FIELD_LIST:8, Info/binary>>) ->
     #request{
         command=?COM_FIELD_LIST, 
         id=Id, 
         info=my_datatypes:string_nul_to_binary(Info)
     };
-decode(<<16#ffffff:24/little, Id:8, Command:8, Info/binary>>) ->
+decode0(16#ffffff, Id, <<Command:8, Info/binary>>) ->
     #request{
         command=Command,
         id=Id,
         info=Info, 
         continue=true
     };
-decode(<<_Length:24/little, Id:8, Command:8, Info/binary>>) ->
+decode0(_, Id, <<Command:8, Info/binary>>) ->
     #request{
         command=Command,
         id=Id,

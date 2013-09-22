@@ -14,13 +14,13 @@
 %%====================================================================
 
 delete_simple_test() ->
-    ?assertEqual(mysql:parse("delete from mitabla"),
+    ?assertEqual(mysql_proto:parse("delete from mitabla"),
         #delete{table=#table{name = <<"mitabla">>, alias = <<"mitabla">>}}
     ),
     ok.
 
 delete_where_test() ->
-    ?assertEqual(mysql:parse("delete from mitabla where dato='this ain''t a love song'"),
+    ?assertEqual(mysql_proto:parse("delete from mitabla where dato='this ain''t a love song'"),
         #delete{
             table=#table{name = <<"mitabla">>, alias = <<"mitabla">>},
             conditions=#condition{

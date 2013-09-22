@@ -84,9 +84,9 @@ init([Socket, Id, Handler, ParseQuery]) ->
     {ok, auth, #state{socket=Socket, id=Id, hash=Hash, handler=Handler, parse_query=ParseQuery}}.
 
 handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,handler=Handler}) ->
-    #request{info=#user{
+    {ok, #request{info=#user{
         name=User, password=Password
-    }} = my_packet:decode_auth(Info),
+    }}, <<>>} = my_packet:decode_auth(Info),
     lager:debug("Hash=~p; Pass=~p~n", [to_hex(Hash),to_hex(Password)]),
     case Handler:check_pass(User, Hash, Password) of
         {ok, Password, HandlerState} ->
@@ -121,16 +121,16 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
 
 handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet=Packet,handler_state=HandlerState}=StateData) ->
     case my_packet:decode(Msg) of
-        #request{continue=true, info=Info}=Request ->
+        {ok, #request{continue=true, info=Info}=Request, <<>>} ->
             lager:debug("Received (partial): ~p~n", [Request]),
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
-        #request{continue=false, id=Id, info=Info, command=Command}=Request ->
+        {ok, #request{continue=false, id=Id, info=Info, command=Command}=Request, <<>>} ->
             lager:debug("Received: ~p~n", [Request]),
             FullPacket = <<Packet/binary, Info/binary>>,
             Query = case StateData#state.parse_query andalso Command =:= ?COM_QUERY of 
                 false -> Request#request{info = FullPacket};
                 true -> 
-                    case mysql:parse(FullPacket) of 
+                    case mysql_proto:parse(FullPacket) of 
                         {fail,Expected} -> 
                             lager:error("SQL invalid: ~p~n", [Expected]),
                             Request#request{info = FullPacket};
@@ -146,7 +146,6 @@ handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet
                 {noreply, NewHandlerState} ->
                     {next_state, normal, NewStateData#state{handler_state=NewHandlerState}};
                 {reply, Response, NewHandlerState} ->
-                    lager:debug("Response: ~p~n", [Response]),
                     gen_tcp:send(Socket, my_packet:encode(
                         Response#response{id = Id+1}
                     )),
