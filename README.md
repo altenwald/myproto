@@ -1,7 +1,7 @@
 Overview
 ========
 
-[![Build Status](https://api.travis-ci.org/bosqueviejo/myproto.png)](https://travis-ci.org/manuel-rubio/myproto)
+[![Build Status](https://api.travis-ci.org/altenwald/myproto.png)](https://travis-ci.org/altenwald/myproto)
 
 MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
 
@@ -12,7 +12,7 @@ If you want to use, only add this in rebar.config:
 
 ```erlang
   {deps, [
-      {myproto, ".*", {git, "git://github.com/bosqueviejo/myproto.git", master}}
+      {myproto, ".*", {git, "git://github.com/altenwald/myproto.git", master}}
   ]}.
 ```
 
@@ -52,7 +52,7 @@ Create the file rebar.config as follow:
 ```erlang
 {sub_dirs, ["apps/*", "rel"]}.
 {deps, [
-  {myproto, ".*", {git, "git://github.com/bosqueviejo/myproto.git", master}}
+  {myproto, ".*", {git, "git://github.com/altenwald/myproto.git", master}}
 ]}.
 ```
 
