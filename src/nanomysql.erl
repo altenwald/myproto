@@ -68,6 +68,8 @@ command(2 = Cmd, Info, Sock) ->
 command(Cmd, Info, Sock) when is_integer(Cmd) ->
   send_packet(Sock, 0, [Cmd, Info]),
   case read_columns(Sock) of
+    {error, Error} ->
+      {error, Error};
     {_Cols, Columns} -> % response to query
       Rows = read_rows(Columns, Sock),
       {ok, {[{Field,type_name(Type)} || #column{name = Field, type = Type} <- Columns], Rows}};
@@ -90,7 +92,9 @@ read_columns(Sock) ->
       {Field, B5} = lenenc_str(B4),   % column name
       {_, B6} = lenenc_str(B5),       % org_name
       <<16#0c, _Charset:16/little, Length:32/little, Type:8, _/binary>> = B6,
-      [#column{name = Field, type = Type, length = Length}|read_columns(Sock)]
+      [#column{name = Field, type = Type, length = Length}|read_columns(Sock)];
+    {error, Error} ->
+      {error, Error}
   end.
 
 
