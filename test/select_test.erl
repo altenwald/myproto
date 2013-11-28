@@ -13,6 +13,16 @@
 %% Test cases
 %%====================================================================
 
+show_test() ->
+    ?assertEqual(#show{type=databases}, mysql_proto:parse("SHOW databases")),
+    ?assertEqual(#show{type=tables, full = true}, mysql_proto:parse("SHOW FULL tables")),
+    ?assertEqual(#show{type=tables, full = false}, mysql_proto:parse("SHOW tables")),
+    ?assertEqual(#show{type=fields,full=true,from= <<"streams">>}, mysql_proto:parse("SHOW FULL FIELDS FROM `streams`")),
+    ?assertEqual(#show{type=fields,full=false,from= <<"streams">>}, mysql_proto:parse("SHOW FIELDS FROM `streams`")),
+    ok.
+
+
+
 select_all_test() ->
     ?assertEqual(mysql_proto:parse("select *"), #select{params=[#all{}]}),
     ?assertEqual(mysql_proto:parse("SELECT *"), #select{params=[#all{}]}),

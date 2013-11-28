@@ -17,10 +17,10 @@ desc_query <- space? describe space table space? `
 
 % --------------- SHOW
 
-show_query <- show_status / show_tables_from / show_tables / show_databases ~;
+show_query <- show_status / show_tables_from / show_tables / show_databases / show_fields ~;
 
-show_status <- space? show space table_keyword space status space like space string space? `
-    #show{type=status, from=lists:nth(10, Node)}
+show_status <- space? show space table_keyword space status space like space like:string space? `
+    #show{type=status, from=proplists:get_value(like, Node)}
 `;
 
 show_tables <- space? show (space full)? space (tables_keyword / schemas) space? `
@@ -32,13 +32,19 @@ show_tables <- space? show (space full)? space (tables_keyword / schemas) space?
     end
 `;
 
-show_tables_from <- show_tables space from space key space? `
-    [ShowTables,_,from,_,Key,_] = Node,
-    ShowTables#show{from=Key}
+show_tables_from <- show_tables:show_tables space from space key:key space? `
+    ShowTables = proplists:get_value(show_tables, Node),
+    ShowTables#show{from=proplists:get_value(key,Node)}
 `;
 
 show_databases <- space? show space databases space? `
     #show{type=databases}
+`;
+
+
+show_fields <- space? show full:(space full)? space (fields_keyword) space from space key:key space? `
+    Full = lists:member(full,proplists:get_value(full,Node)),
+    #show{type=fields, full=Full, from = proplists:get_value(key,Node)}
 `;
 
 % --------------- SELECT
@@ -282,6 +288,7 @@ offset <- #(?i)offset# `offset`;
 full <- #(?i)full# `full`;
 schemas <- #(?i)schemas# `schemas`;
 show <- #(?i)show# `show`;
+fields_keyword <- #(?i)fields# `fields`;
 tables_keyword <- #(?i)tables# `tables`;
 table_keyword <- #(?i)table# `table`;
 databases <- #(?i)databases# `databases`;
