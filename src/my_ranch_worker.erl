@@ -60,7 +60,7 @@ handle_info({tcp, Socket, Bin}, #server{my = My} = Server) ->
   end;
 
 handle_info({tcp_closed, _Socket}, #server{handler = Handler, state = HandlerState} = Server) ->
-  Handler:terminate(normal, HandlerState),
+  Handler:terminate(tcp_closed, HandlerState),
   {stop, normal, Server};
 
 handle_info({tcp_error, _, Error}, #server{handler = Handler, state = HandlerState} = Server) ->
