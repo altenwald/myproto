@@ -85,13 +85,16 @@ read_columns(Sock) ->
     {ok, _, <<Cols>>} -> 
       {Cols, read_columns(Sock)}; % number of columns
     {ok, _, FieldBin} ->
-      {_, B1} = lenenc_str(FieldBin), % Catalog
-      {_, B2} = lenenc_str(B1),       % schema
-      {_, B3} = lenenc_str(B2),       % table
-      {_, B4} = lenenc_str(B3),       % org_table
+      {_Cat, B1} = lenenc_str(FieldBin), % Catalog
+      {_Schema, B2} = lenenc_str(B1),       % schema
+      {_Table, B3} = lenenc_str(B2),       % table
+      {_OrgTable, B4} = lenenc_str(B3),       % org_table
       {Field, B5} = lenenc_str(B4),   % column name
-      {_, B6} = lenenc_str(B5),       % org_name
-      <<16#0c, _Charset:16/little, Length:32/little, Type:8, _/binary>> = B6,
+      {_OrgName, B6} = lenenc_str(B5),       % org_name
+      <<16#0c, _Charset:16/little, Length:32/little, Type:8, Flags:16, Decimals:8, _/binary>> = B6,
+      % io:format("name= ~p, cat= ~p, schema= ~p, table= ~p, org_table= ~p, org_name= ~p, flags=~p, type=~p,decimals=~p,length=~p\n", [
+      %   Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,Decimals,Length
+      %   ]),
       [#column{name = Field, type = Type, length = Length}|read_columns(Sock)];
     {error, Error} ->
       {error, Error}
