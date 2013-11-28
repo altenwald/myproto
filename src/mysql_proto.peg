@@ -1,4 +1,4 @@
-sql <- select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
+sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
 
 % --------------- USE
 
@@ -45,6 +45,24 @@ show_databases <- space? show space databases space? `
 show_fields <- space? show full:(space full)? space (fields_keyword) space from space key:key space? `
     Full = lists:member(full,proplists:get_value(full,Node)),
     #show{type=fields, full=Full, from = proplists:get_value(key,Node)}
+`;
+
+
+% --------------- SET
+
+set_query <- set space head:system_set tail:(space? ',' space? s:system_set )* space? `
+    Head = proplists:get_value(head,Node),
+    Tail = [proplists:get_value(s,N) || N <- proplists:get_value(tail,Node)],
+    #system_set{query = [Head|Tail]}
+`;
+
+system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string `
+    case proplists:get_value(names,Node) of
+        undefined ->
+            {proplists:get_value(var,Node), proplists:get_value(val,Node)};
+        N ->
+            {#variable{name = N, scope = session}, proplists:get_value(val,Node)}
+    end
 `;
 
 % --------------- SELECT
@@ -334,6 +352,17 @@ var <- '@' '@'? key `
     end,
     #variable{name=Key, scope=Scope}
 `;
+
+set_var <- '@'? '@'? key `
+    [L,G,Key] = Node,
+    Scope = if
+        L == [] andalso G == [] -> session;
+        G == [] -> global;
+        true -> local
+    end,
+    #variable{name=Key, scope=Scope}
+`;
+
 
 % Basic types
 string <- "'" ((!"'" ("\\\\" / "\\'" / .)) ("''")?)* "'" `binary:replace(iolist_to_binary(lists:nth(2, Node)), <<"''">>, <<"'">>)`;
