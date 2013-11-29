@@ -17,7 +17,7 @@ desc_query <- space? describe space table space? `
 
 % --------------- SHOW
 
-show_query <- show_status / show_tables_from / show_tables / show_databases / show_fields ~;
+show_query <- show_status / show_tables_from / show_tables_like / show_tables / show_databases / show_fields ~;
 
 show_status <- space? show space table_keyword space status space like space like:string space? `
     #show{type=status, from=proplists:get_value(like, Node)}
@@ -35,6 +35,11 @@ show_tables <- space? show (space full)? space (tables_keyword / schemas) space?
 show_tables_from <- show_tables:show_tables space from space key:key space? `
     ShowTables = proplists:get_value(show_tables, Node),
     ShowTables#show{from=proplists:get_value(key,Node)}
+`;
+
+show_tables_like <- show_tables:show_tables space like space pattern:string space? `
+    ShowTables = proplists:get_value(show_tables, Node),
+    ShowTables#show{from={like,proplists:get_value(pattern,Node)}}
 `;
 
 show_databases <- space? show space databases space? `

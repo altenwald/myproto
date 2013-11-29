@@ -82,6 +82,9 @@ read_columns(Sock) ->
   case read_packet(Sock) of
     {ok, _, <<254, _/binary>>} ->
       [];
+    {ok, _, <<0:24, 2, 0:24>>} ->
+      % Very strange reply
+      [];
     {ok, _, <<Cols>>} -> 
       {Cols, read_columns(Sock)}; % number of columns
     {ok, _, FieldBin} ->
@@ -91,9 +94,9 @@ read_columns(Sock) ->
       {_OrgTable, B4} = lenenc_str(B3),       % org_table
       {Field, B5} = lenenc_str(B4),   % column name
       {_OrgName, B6} = lenenc_str(B5),       % org_name
-      <<16#0c, _Charset:16/little, Length:32/little, Type:8, Flags:16, Decimals:8, _/binary>> = B6,
+      <<16#0c, _Charset:16/little, Length:32/little, Type:8, Flags:16, _Decimals:8, _/binary>> = B6,
       % io:format("name= ~p, cat= ~p, schema= ~p, table= ~p, org_table= ~p, org_name= ~p, flags=~p, type=~p,decimals=~p,length=~p\n", [
-      %   Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,Decimals,Length
+      %   Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,_Decimals,Length
       %   ]),
       [#column{name = Field, type = Type, length = Length}|read_columns(Sock)];
     {error, Error} ->
@@ -154,7 +157,8 @@ read_packet(Sock) ->
   {ok, <<Len:24/little, Number>>} = gen_tcp:recv(Sock, 4),
   case gen_tcp:recv(Sock, Len) of
     {ok, <<255, Code:16/little, Error/binary>>} -> {error, {Code, Error}};
-    {ok, Bin} -> {ok, Number, Bin}
+    {ok, Bin} -> % io:format("packet ~B\n~p\n", [Number, Bin]), 
+      {ok, Number, Bin}
   end.
 
 
