@@ -20,7 +20,10 @@ show_test() ->
     ?assertEqual(#show{type=fields,full=true,from= <<"streams">>}, mysql_proto:parse("SHOW FULL FIELDS FROM `streams`")),
     ?assertEqual(#show{type=fields,full=false,from= <<"streams">>}, mysql_proto:parse("SHOW FIELDS FROM `streams`")),
     ?assertEqual(#show{type=tables,full=false,from= {like,<<"streams">>}}, mysql_proto:parse("SHOW TABLES LIKE 'streams'")),
+    ?assertMatch(#show{type=create_table,from= <<"streams">>}, mysql_proto:parse("SHOW CREATE TABLE `streams`")),
     ok.
+
+
 
 
 set_test() ->

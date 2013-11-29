@@ -95,9 +95,9 @@ read_columns(Sock) ->
       {Field, B5} = lenenc_str(B4),   % column name
       {_OrgName, B6} = lenenc_str(B5),       % org_name
       <<16#0c, _Charset:16/little, Length:32/little, Type:8, Flags:16, _Decimals:8, _/binary>> = B6,
-      % io:format("name= ~p, cat= ~p, schema= ~p, table= ~p, org_table= ~p, org_name= ~p, flags=~p, type=~p,decimals=~p,length=~p\n", [
-      %   Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,_Decimals,Length
-      %   ]),
+      io:format("name= ~p, cat= ~p, schema= ~p, table= ~p, org_table= ~p, org_name= ~p, flags=~p, type=~p,decimals=~p,length=~p\n", [
+        Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,_Decimals,Length
+        ]),
       [#column{name = Field, type = Type, length = Length}|read_columns(Sock)];
     {error, Error} ->
       {error, Error}
