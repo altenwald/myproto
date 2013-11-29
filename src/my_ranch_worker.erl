@@ -78,6 +78,13 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
       case Handler:execute(Query, HandlerState) of
         {noreply, HandlerState1} ->
           handle_packets(Server#server{my = My1, state = HandlerState1});
+        {reply, default, HandlerState1} when Query#request.command == quit ->
+          Handler:terminate(quit, HandlerState1),
+          {stop, normal, Server#server{my = My1, state = HandlerState1}};
+        {reply, default, HandlerState1} ->
+          {reply, Reply, HandlerState2} = default_reply(Query, Handler, HandlerState1),
+          {ok, My2} = my_protocol:send_or_reply(Reply, My1),
+          handle_packets(Server#server{my = My2, state = HandlerState2});          
         {reply, Response, HandlerState1} ->
           {ok, My2} = my_protocol:send_or_reply(Response, My1),
           handle_packets(Server#server{my = My2, state = HandlerState1});
@@ -91,6 +98,138 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
 
 
 
+
+
+
+
+
+default_reply(#request{info = #select{params=[#variable{name = <<"version_comment">>}]}}, Handler, State) ->
+  {Version, State1} = case Handler:metadata(version, State) of
+    {reply, Vsn, State1_} -> {iolist_to_binary(Vsn), State1_};
+    {noreply, State1_} -> {<<"erlang myproto server">>, State1_}
+  end,
+  Info = {
+    [#column{name = <<"@@version_comment">>, type=?TYPE_VARCHAR, length=20}],
+    [[Version]]
+  },
+  {reply, #response{status=?STATUS_OK, info=Info}, State1};
+
+
+default_reply(#request{command = init_db, info = Database}, Handler, State) ->
+  {noreply, State1} = Handler:metadata({connect_db,Database}, State),
+  {reply, #response {
+    status=?STATUS_OK, info = <<"Changed to ", Database/binary>>
+  }, State1};
+
+
+default_reply(#request{info = #show{type = databases}}, Handler, State) ->
+  {Databases, State1} = case Handler:metadata(databases, State) of
+    {reply, DB, State1_} -> {DB, State1_};
+    {noreply, State1_} -> {[<<"myproto">>], State1_}
+  end,
+  ResponseFields = {
+    [#column{name = <<"Database">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>}],
+    [ [DB] || DB <- Databases]
+  },
+  Response = #response{status=?STATUS_OK, info = ResponseFields},
+  {reply, Response, State1};
+
+
+
+default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}]}}, _Handler, State) ->
+  ResponseFields = {
+    [#column{name = <<"DATABASE()">>, type=?TYPE_VAR_STRING, length=102, flags = 0, decimals = 31}],
+    []
+  },
+  Response = #response{status=?STATUS_OK, info = ResponseFields},
+  {reply, Response, State};
+
+
+
+default_reply(#request{info = #show{type = tables}}, Handler, State) ->
+  {DB, Tables, State1} = case Handler:metadata(tables, State) of
+    {reply, {DB_, Tables_}, State1_} -> {DB_, Tables_, State1_};
+    {noreply, State1_} -> {<<"myproto">>, [], State1_}
+  end,
+  ResponseFields = {
+    [#column{name = <<"Tables_in_", DB/binary>>, type=?TYPE_VAR_STRING, schema = DB, table = <<"TABLE_NAMES">>, 
+      org_table = <<"TABLE_NAMES">>, org_name = <<"TABLE_NAME">>, flags = 256, length = 192, decimals = 0}],
+    [ [Table] || Table <- Tables]
+  },
+  Response = #response{status=?STATUS_OK, info = ResponseFields},
+  {reply, Response, State1};
+
+
+
+default_reply(#request{info = #show{type = fields, from = Table, full = Full}}, Handler, State) ->
+  {reply, {_DB, Table, Fields}, State1} = Handler:metadata({fields, Table}, State),
+  Header = [
+    #column{name = <<"Field">>, org_name = <<"COLUMN_NAME">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 192, flags = 256},
+    #column{name = <<"Type">>, org_name = <<"COLUMN_TYPE">>, type = ?TYPE_BLOB, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 589815, flags = 256},
+    #column{name = <<"Null">>, org_name = <<"IS_NULLABLE">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 9, flags = 256},
+    #column{name = <<"Key">>, org_name = <<"COLUMN_KEY">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 9, flags = 256},
+    #column{name = <<"Default">>, org_name = <<"COLUMN_DEFAULT">>, type = ?TYPE_BLOB, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 589815, flags = 256},
+    #column{name = <<"Extra">>, org_name = <<"EXTRA">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 90, flags = 256}
+  ] ++ case Full of
+    true -> [
+      #column{name = <<"Collation">>, org_name = <<"COLLATION_NAME">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 96, flags = 256},
+      #column{name = <<"Privileges">>, org_name = <<"PRIVILEGES">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 240, flags = 256},
+      #column{name = <<"Comment">>, org_name = <<"COLUMN_COMMENT">>, type = ?TYPE_VAR_STRING, table = <<"COLUMNS">>, org_table = <<"COLUMNS">>, schema = <<"information_schema">>, length = 3072, flags = 256}
+    ];
+    false -> []
+  end,
+  Rows = lists:map(fun({Name,Type}) ->
+    [atom_to_binary(Name,latin1),
+    case Type of string -> <<"varchar(255)">>; _ -> <<"bigint(20)">> end,
+    <<"YES">>,
+    <<>>,
+    undefined,
+    <<>>
+    ] ++ case Full of
+      true -> [case Type of string -> <<"utf8_general_ci">>; _ -> undefined end, <<"select,insert,update,references">>,<<>>];
+      false -> []
+    end
+  end, Fields),
+  {reply, #response{status=?STATUS_OK, info = {Header, Rows}}, State1};  
+
+
+
+default_reply(#request{info = #show{type = create_table, from = Table}}, Handler, State) ->
+  {reply, {_DB, Table, Fields}, State1} = Handler:metadata({fields,Table}, State),
+  CreateTable = iolist_to_binary([
+    "CREATE TABLE `", Table, "` (\n",
+      tl(lists:flatmap(fun({Name,Type}) ->
+        [",", "`", atom_to_binary(Name,latin1), "` ", case Type of string -> "varchar(255)"; integer -> "bigint(20)" end, "\n"]
+      end, Fields)),
+    ")"
+  ]),
+  Response = {
+    [#column{name = <<"Table">>, type = ?TYPE_VAR_STRING, flags = 256, decimals = 31, length = 192},
+    #column{name = <<"Create Table">>, type = ?TYPE_VAR_STRING, flags = 256, decimals = 31, length = 3072}],
+    [
+    [Table, CreateTable]
+    ]
+  },
+  {reply, #response{status=?STATUS_OK, info = Response}, State1};
+
+
+default_reply(#request{command = field_list, info = Table}, Handler, State) ->
+  {reply, {DB, Table, Fields}, State1} = Handler:metadata({fields,Table}, State),
+  
+  Reply = [#column{schema = DB, table = Table, org_table = Table, name = to_b(Field), org_name = to_b(Field), length = 20,
+    type = case Type of string -> ?TYPE_VAR_STRING; integer -> ?TYPE_LONGLONG end} || {Field,Type} <- Fields],
+  {reply, #response{status=?STATUS_OK, info = {Reply}}, State1};    
+
+default_reply(#request{command = ping}, _Handler, State) ->
+  {reply, #response{status = ?STATUS_OK, id = 1}, State};
+
+
+default_reply(_, _Handler, State) ->
+  {reply, #response{status=?STATUS_OK}, State}.
+
+
+to_b(Atom) when is_atom(Atom) -> atom_to_binary(Atom, latin1);
+to_b(Bin) when is_binary(Bin) -> Bin.
 
 
 
