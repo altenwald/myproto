@@ -166,6 +166,11 @@ decode(#my{buffer = Bin, state = normal, parse_query = ParseQuery, query_buffer 
         ?COM_REFRESH -> refresh;
         ?COM_SHUTDOWN -> shutdown;
         ?COM_STATISTICS -> statistics;
+        ?COM_PROCESS_INFO -> process_info;
+        ?COM_CONNECT -> connect;
+        ?COM_PROCESS_KILL -> process_kill;
+        ?COM_DEBUG -> debug;
+        ?COM_PING -> ping;
         Else -> Else
       end,
 
