@@ -11,6 +11,8 @@
 -record(operation, {type, op1, op2}).
 -record(variable, {name, label, scope}).
 
+-record(system_set, {query}).
+
 % SHOW
 -record(show, {type, full, from}).
 

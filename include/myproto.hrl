@@ -162,7 +162,8 @@
 -record(column, {
 	schema = <<>> :: binary(),
 	table = <<>> :: binary(),
-	org_name :: binary(),
+	org_name = <<>> :: binary(),
+	org_table = <<>> :: binary(),
 	name :: binary(),
 	charset = ?UTF8_GENERAL_CI :: integer(),
 	length :: integer(),

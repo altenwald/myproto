@@ -13,6 +13,31 @@
 %% Test cases
 %%====================================================================
 
+show_test() ->
+    ?assertEqual(#show{type=databases}, mysql_proto:parse("SHOW databases")),
+    ?assertEqual(#show{type=tables, full = true}, mysql_proto:parse("SHOW FULL tables")),
+    ?assertEqual(#show{type=tables, full = false}, mysql_proto:parse("SHOW tables")),
+    ?assertEqual(#show{type=fields,full=true,from= <<"streams">>}, mysql_proto:parse("SHOW FULL FIELDS FROM `streams`")),
+    ?assertEqual(#show{type=fields,full=false,from= <<"streams">>}, mysql_proto:parse("SHOW FIELDS FROM `streams`")),
+    ?assertEqual(#show{type=tables,full=false,from= {like,<<"streams">>}}, mysql_proto:parse("SHOW TABLES LIKE 'streams'")),
+    ?assertMatch(#show{type=create_table,from= <<"streams">>}, mysql_proto:parse("SHOW CREATE TABLE `streams`")),
+    ok.
+
+
+
+
+set_test() ->
+    ?assertMatch(#system_set{query=[{#variable{name = <<"a">>, scope = session},0}]}, mysql_proto:parse("SET a=0")),
+    ?assertMatch(#system_set{query=[{#variable{name = <<"NAMES">>},<<"utf8">>}]}, mysql_proto:parse("SET NAMES 'utf8'")),
+
+    ?assertMatch(#system_set{query=[
+        {#variable{name = <<"SQL_AUTO_IS_NULL">>, scope = session},0},
+        {#variable{name = <<"NAMES">>},<<"utf8">>},
+        {#variable{name = <<"wait_timeout">>, scope = local}, 2147483}
+    ]}, mysql_proto:parse("SET SQL_AUTO_IS_NULL=0, NAMES 'utf8', @@wait_timeout = 2147483")),
+    ok.
+
+
 select_all_test() ->
     ?assertEqual(mysql_proto:parse("select *"), #select{params=[#all{}]}),
     ?assertEqual(mysql_proto:parse("SELECT *"), #select{params=[#all{}]}),

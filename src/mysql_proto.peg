@@ -1,4 +1,4 @@
-sql <- select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
+sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
 
 % --------------- USE
 
@@ -17,10 +17,10 @@ desc_query <- space? describe space table space? `
 
 % --------------- SHOW
 
-show_query <- show_status / show_tables_from / show_tables / show_databases ~;
+show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / show_fields ~;
 
-show_status <- space? show space table_keyword space status space like space string space? `
-    #show{type=status, from=lists:nth(10, Node)}
+show_status <- space? show space table_keyword space status space like space like:string space? `
+    #show{type=status, from=proplists:get_value(like, Node)}
 `;
 
 show_tables <- space? show (space full)? space (tables_keyword / schemas) space? `
@@ -32,13 +32,46 @@ show_tables <- space? show (space full)? space (tables_keyword / schemas) space?
     end
 `;
 
-show_tables_from <- show_tables space from space key space? `
-    [ShowTables,_,from,_,Key,_] = Node,
-    ShowTables#show{from=Key}
+show_create_table <- space? show space #(?i)create# space table_keyword space key:key space? `
+    #show{type = create_table, from=proplists:get_value(key,Node)}
+`;
+
+show_tables_from <- show_tables:show_tables space from space key:key space? `
+    ShowTables = proplists:get_value(show_tables, Node),
+    ShowTables#show{from=proplists:get_value(key,Node)}
+`;
+
+show_tables_like <- show_tables:show_tables space like space pattern:string space? `
+    ShowTables = proplists:get_value(show_tables, Node),
+    ShowTables#show{from={like,proplists:get_value(pattern,Node)}}
 `;
 
 show_databases <- space? show space databases space? `
     #show{type=databases}
+`;
+
+
+show_fields <- space? show full:(space full)? space (fields_keyword) space from space key:key space? `
+    Full = lists:member(full,proplists:get_value(full,Node)),
+    #show{type=fields, full=Full, from = proplists:get_value(key,Node)}
+`;
+
+
+% --------------- SET
+
+set_query <- set space head:system_set tail:(space? ',' space? s:system_set )* space? `
+    Head = proplists:get_value(head,Node),
+    Tail = [proplists:get_value(s,N) || N <- proplists:get_value(tail,Node)],
+    #system_set{query = [Head|Tail]}
+`;
+
+system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string `
+    case proplists:get_value(names,Node) of
+        undefined ->
+            {proplists:get_value(var,Node), proplists:get_value(val,Node)};
+        N ->
+            {#variable{name = N, scope = session}, proplists:get_value(val,Node)}
+    end
 `;
 
 % --------------- SELECT
@@ -282,6 +315,7 @@ offset <- #(?i)offset# `offset`;
 full <- #(?i)full# `full`;
 schemas <- #(?i)schemas# `schemas`;
 show <- #(?i)show# `show`;
+fields_keyword <- #(?i)fields# `fields`;
 tables_keyword <- #(?i)tables# `tables`;
 table_keyword <- #(?i)table# `table`;
 databases <- #(?i)databases# `databases`;
@@ -327,6 +361,17 @@ var <- '@' '@'? key `
     end,
     #variable{name=Key, scope=Scope}
 `;
+
+set_var <- '@'? '@'? key `
+    [L,G,Key] = Node,
+    Scope = if
+        L == [] andalso G == [] -> session;
+        G == [] -> global;
+        true -> local
+    end,
+    #variable{name=Key, scope=Scope}
+`;
+
 
 % Basic types
 string <- "'" ((!"'" ("\\\\" / "\\'" / .)) ("''")?)* "'" `binary:replace(iolist_to_binary(lists:nth(2, Node)), <<"''">>, <<"'">>)`;
