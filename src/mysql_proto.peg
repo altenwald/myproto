@@ -62,7 +62,7 @@ show_fields <- space? show full:(space full)? space (fields_keyword) space from 
 set_query <- set space head:system_set tail:(space? ',' space? s:system_set )* space? `
     Head = proplists:get_value(head,Node),
     Tail = [proplists:get_value(s,N) || N <- proplists:get_value(tail,Node)],
-    #system_set{query = [Head|Tail]}
+    #system_set{'query' = [Head|Tail]}
 `;
 
 system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string `

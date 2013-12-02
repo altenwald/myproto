@@ -27,10 +27,10 @@ show_test() ->
 
 
 set_test() ->
-    ?assertMatch(#system_set{query=[{#variable{name = <<"a">>, scope = session},0}]}, mysql_proto:parse("SET a=0")),
-    ?assertMatch(#system_set{query=[{#variable{name = <<"NAMES">>},<<"utf8">>}]}, mysql_proto:parse("SET NAMES 'utf8'")),
+    ?assertMatch(#system_set{'query'=[{#variable{name = <<"a">>, scope = session},0}]}, mysql_proto:parse("SET a=0")),
+    ?assertMatch(#system_set{'query'=[{#variable{name = <<"NAMES">>},<<"utf8">>}]}, mysql_proto:parse("SET NAMES 'utf8'")),
 
-    ?assertMatch(#system_set{query=[
+    ?assertMatch(#system_set{'query'=[
         {#variable{name = <<"SQL_AUTO_IS_NULL">>, scope = session},0},
         {#variable{name = <<"NAMES">>},<<"utf8">>},
         {#variable{name = <<"wait_timeout">>, scope = local}, 2147483}
