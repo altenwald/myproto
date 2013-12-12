@@ -41,8 +41,10 @@ start(Socket, Id, Handler, ParseQuery) ->
 sha1_hex(Data) ->
     to_hex(crypto:sha(Data)).
 
--spec to_hex(Hash :: binary()) -> binary().
+-spec to_hex(Hash :: binary() | undefined) -> binary().
 
+to_hex(<<>>) ->
+    <<"undefined">>;
 to_hex(undefined) ->
     <<"undefined">>;
 to_hex(<<X:160/big-unsigned-integer>>) ->
