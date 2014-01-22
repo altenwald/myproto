@@ -206,3 +206,7 @@ SELECT * FROM sometable;
 ```
 
 Done :-)
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/altenwald/myproto/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
