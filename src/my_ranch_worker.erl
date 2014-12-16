@@ -32,18 +32,23 @@ init_server(ListenerPid, Socket, Handler, _Args) ->
 
   My0 = my_protocol:init([{socket, Socket}]),
   {ok, My1} = my_protocol:hello(42, My0),
-  {ok, #request{info = #user{name=User, password=Password, server_hash = Hash}}, My2} = my_protocol:next_packet(My1),
-  case Handler:check_pass(User, Hash, Password) of
-    {ok, Password, HandlerState} ->
-      {ok, My3} = my_protocol:ok(My2),
-      inet:setopts(Socket, [{active,once}]),
-      State = #server{handler = Handler, state = HandlerState, socket = Socket, my = My3},
-      gen_server:enter_loop(?MODULE, [], State);
-    {error, Reason} ->
-      my_protocol:error(Reason, My2);
-    {error, Code, Reason} ->
-      my_protocol:error(Code, Reason, My2)
+  case my_protocol:next_packet(My1) of
+    {ok, #request{info = #user{name=User, password=Password, server_hash = Hash}}, My2} ->
+      case Handler:check_pass(User, Hash, Password) of
+        {ok, Password, HandlerState} ->
+          {ok, My3} = my_protocol:ok(My2),
+          inet:setopts(Socket, [{active,once}]),
+          State = #server{handler = Handler, state = HandlerState, socket = Socket, my = My3},
+          gen_server:enter_loop(?MODULE, [], State);
+        {error, Reason} ->
+          my_protocol:error(Reason, My2);
+        {error, Code, Reason} ->
+          my_protocol:error(Code, Reason, My2)
+      end;
+    {error, StartError} ->
+      {stop, StartError}
   end.
+
 
 handle_call(Call, _From, #server{} = Server) ->
   {stop, {unknown_call,Call}, Server}.
