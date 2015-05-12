@@ -33,8 +33,8 @@ init_server(ListenerPid, Socket, Handler, _Args) ->
   My0 = my_protocol:init([{socket, Socket}]),
   {ok, My1} = my_protocol:hello(42, My0),
   case my_protocol:next_packet(My1) of
-    {ok, #request{info = #user{name=User, password=Password, server_hash = Hash}}, My2} ->
-      case Handler:check_pass(User, Hash, Password) of
+    {ok, #request{info = #user{password = Password} = User}, My2} ->
+      case Handler:check_pass(User) of
         {ok, Password, HandlerState} ->
           {ok, My3} = my_protocol:ok(My2),
           inet:setopts(Socket, [{active,once}]),

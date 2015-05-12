@@ -131,6 +131,7 @@
 	capabilities :: integer(),
 	plugin :: binary(),
 	charset :: binary(),
+	database :: binary(),
 	server_hash :: binary()
 }).
 

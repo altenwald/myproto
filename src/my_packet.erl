@@ -200,11 +200,11 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
                     unpack_zero(Info1)
             end
     end,
-    {_DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
+    {DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
         % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
         % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
-        % true ->
-        %     unpack_zero(Info2);
+        true ->
+            unpack_zero(Info2);
         _ ->
             {undefined, Info2}
     end,
@@ -219,6 +219,7 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
         password=Password, 
         plugin=Plugin,
         capabilities=Caps,
+        database=DB,
         charset=Charset
     },
     #request{command=?COM_AUTH, info=UserData}.

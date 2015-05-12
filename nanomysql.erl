@@ -2,7 +2,7 @@
 
 -mode(compile).
 
-main([URL]) ->
+main([URL|_Args]) ->
   code:add_pathz("ebin"),
   {ok, Sock} = nanomysql:connect(URL),
   {ok, {mysql, _, _Host, _Port, "/"++DBName, []}} = http_uri:parse(URL, [{scheme_defaults,[{mysql,3306}]}]),
@@ -11,7 +11,11 @@ main([URL]) ->
   nanomysql:execute("show databases", Sock),
   {ok, {_, Rows}} = nanomysql:execute("show tables", Sock),
   [nanomysql:command(4, <<Name/binary,0>>, Sock) || [Name] <- Rows],
-  loop(Sock).
+  loop(Sock);
+
+main([]) ->
+  io:format("~s mysql://user:password@host:port/dbname\n", [escript:script_name()]),
+  erlang:halt(2).
 
 
 loop(Sock) ->

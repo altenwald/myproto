@@ -27,16 +27,18 @@ connect(URL) ->
     <<>> -> 0;
     "" -> 0;
     _ ->
-      Digest1 = crypto:sha(Password),
-      SHA = crypto:sha_final(crypto:sha_update(
-        crypto:sha_update(crypto:sha_init(), Scramble), 
-        crypto:sha(Digest1)
+      Digest1 = crypto:hash(sha, Password),
+      SHA = crypto:hash_final(crypto:hash_update(
+        crypto:hash_update(crypto:hash_init(sha), Scramble),
+        crypto:hash(sha, Digest1)
       )),
       [size(SHA), crypto:exor(Digest1, SHA) ]
   end,
 
   % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
-  send_packet(Sock, 1, [<<16#4003F7CF:32/little, (MaxPacket-1):32/little, Charset>>, binary:copy(<<0>>, 23), 
+  % CLIENT_CONNECT_WITH_DB = 8
+  CapFlags = 16#4003F7CF bor 8,
+  send_packet(Sock, 1, [<<CapFlags:32/little, (MaxPacket-1):32/little, Charset>>, binary:copy(<<0>>, 23), 
     [User, 0], Auth, DBName, 0]),
 
   case read_packet(Sock) of
