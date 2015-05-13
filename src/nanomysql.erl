@@ -95,12 +95,12 @@ command(Cmd, Info, Sock) when is_integer(Cmd) ->
 read_columns(Sock) ->
   case read_packet(Sock) of
     {ok, _, <<254, _/binary>>} ->
-      ok;
+      [];
     {ok, _, <<0, Packet/binary>>} -> % 0 is STATUS_OK
       {_AffectedRows, P1} = lenenc_str(Packet),
       {_LastInsertId, P2} = lenenc_str(P1),
       <<_Status:16/little, _Warnings:16/little, _Rest/binary>> = P2,
-      ok;
+      [];
     {ok, _, <<Cols>>} -> 
       {Cols, read_columns(Sock)}; % number of columns
     {ok, _, FieldBin} ->
@@ -143,7 +143,7 @@ type_name(T) -> T.
 
 
 
-read_rows(Columns, Sock) ->
+read_rows(Columns, Sock) when is_list(Columns) ->
   case read_packet(Sock) of
     {ok, _, <<254,_/binary>>} -> [];
     {ok, _, Row} -> [unpack_row(Columns, Row)|read_rows(Columns, Sock)]

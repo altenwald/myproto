@@ -30,7 +30,7 @@ init_server(ListenerPid, Socket, Handler, _Args) ->
   proc_lib:init_ack({ok, self()}),
   ranch:accept_ack(ListenerPid),
 
-  My0 = my_protocol:init([{socket, Socket}]),
+  My0 = my_protocol:init([{socket, Socket},{parse_query,false}]),
   {ok, My1} = my_protocol:hello(42, My0),
   case my_protocol:next_packet(My1) of
     {ok, #request{info = #user{password = Password} = User}, My2} ->
@@ -150,7 +150,6 @@ default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}
   {reply, Response, State};
 
 
-
 default_reply(#request{info = #show{type = tables}}, Handler, State) ->
   {DB, Tables, State1} = case Handler:metadata(tables, State) of
     {reply, {DB_, Tables_}, State1_} -> {DB_, Tables_, State1_};
@@ -227,7 +226,6 @@ default_reply(#request{command = field_list, info = Table}, Handler, State) ->
 
 default_reply(#request{command = ping}, _Handler, State) ->
   {reply, #response{status = ?STATUS_OK, id = 1}, State};
-
 
 default_reply(_, _Handler, State) ->
   {reply, #response{status=?STATUS_OK}, State}.
