@@ -67,17 +67,15 @@ send_or_reply(ok, #my{} = My) ->
   ok(My);
 
 send_or_reply(#response{id = 0} = Response, #my{id = Id} = My) ->
-  send_or_reply(my_packet:encode(Response#response{id = Id}), My#my{id = Id+1});
+  send_or_reply(Response#response{id = Id}, My#my{id = Id+1});
 
-send_or_reply(#response{} = Response, #my{} = My) ->
-  send_or_reply(my_packet:encode(Response), My);
-
-send_or_reply(Bin, #my{socket = undefined} = My) when is_binary(Bin) ->
-  {ok, Bin, My};
-
-send_or_reply(Bin, #my{socket = Socket} = My) when is_binary(Bin) ->
-  % lager:info("outgoing ~p", [Bin]),
-  ok = gen_tcp:send(Socket, Bin),
+send_or_reply(#response{} = Response, #my{socket = Socket} = My) ->
+  % ST = try (throw(a))
+  % catch
+  %   throw:_ -> erlang:get_stacktrace()
+  % end,
+  % lager:info("~p -> ~p -- ~p\n", [Response, my_packet:encode(Response), ST]),
+  ok = gen_tcp:send(Socket, my_packet:encode(Response)),
   {ok, My}.
 
 

@@ -2,6 +2,7 @@
 -author('Max Lapshin <max@maxidoors.ru>').
 
 -export([connect/1, execute/2, command/3]).
+-export([select/2]).
 
 %% @doc
 %% connect("mysql://user:password@127.0.0.1/dbname")
@@ -58,6 +59,15 @@ connect(URL) ->
 execute(Query, Sock) ->
   command(3, Query, Sock).
 
+select(Query, Sock) ->
+  case execute(Query, Sock) of
+    {error, Error} ->
+      error(Error);
+    {ok, {Columns, Rows}} ->
+      Names = [binary_to_atom(N,latin1) || {N,_} <- Columns],
+      [maps:from_list(lists:zip(Names,Row)) || Row <- Rows]
+  end.
+
 
 command(show_fields, Info, Sock) ->
   command(4, Info, Sock);
@@ -72,6 +82,8 @@ command(Cmd, Info, Sock) when is_integer(Cmd) ->
   case read_columns(Sock) of
     {error, Error} ->
       {error, Error};
+    ok ->
+      {ok, {[],[]}};
     {_Cols, Columns} -> % response to query
       Rows = read_rows(Columns, Sock),
       {ok, {[{Field,type_name(Type)} || #column{name = Field, type = Type} <- Columns], Rows}};
@@ -83,10 +95,12 @@ command(Cmd, Info, Sock) when is_integer(Cmd) ->
 read_columns(Sock) ->
   case read_packet(Sock) of
     {ok, _, <<254, _/binary>>} ->
-      [];
-    {ok, _, <<0:24, 2, 0:24>>} ->
-      % Very strange reply
-      [];
+      ok;
+    {ok, _, <<0, Packet/binary>>} -> % 0 is STATUS_OK
+      {_AffectedRows, P1} = lenenc_str(Packet),
+      {_LastInsertId, P2} = lenenc_str(P1),
+      <<_Status:16/little, _Warnings:16/little, _Rest/binary>> = P2,
+      ok;
     {ok, _, <<Cols>>} -> 
       {Cols, read_columns(Sock)}; % number of columns
     {ok, _, FieldBin} ->
@@ -97,9 +111,14 @@ read_columns(Sock) ->
       {Field, B5} = lenenc_str(B4),   % column name
       {_OrgName, B6} = lenenc_str(B5),       % org_name
       <<16#0c, _Charset:16/little, Length:32/little, Type:8, Flags:16, _Decimals:8, _/binary>> = B6,
-      io:format("name= ~p, cat= ~p, schema= ~p, table= ~p, org_table= ~p, org_name= ~p, flags=~p, type=~p,decimals=~p,length=~p\n", [
-        Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,_Decimals,Length
-        ]),
+      case get(debug) of
+        true ->
+          io:format("name= ~p, cat= ~p, schema= ~p, table= ~p, org_table= ~p, org_name= ~p, flags=~p, type=~p,decimals=~p,length=~p\n", [
+            Field, _Cat, _Schema, _Table, _OrgTable, _OrgName, Flags,Type,_Decimals,Length
+            ]);
+        _ ->
+          ok
+      end,
       [#column{name = Field, type = Type, length = Length}|read_columns(Sock)];
     {error, Error} ->
       {error, Error}
@@ -138,6 +157,9 @@ unpack_row([Column|Columns], Bin) ->
   [Val|unpack_row(Columns, Rest)].
 
 
+unpack_value(#column{type = 1}, <<"1">>) -> true;
+unpack_value(#column{type = 1}, <<"0">>) -> false;
+
 unpack_value(#column{type = T}, Bin) when 
   T == 1; T == 2; T == 3; T == 8; T == 9; T == 13 ->
   % Len = Length*8,
@@ -156,11 +178,10 @@ lenenc_str(<<253, Len:24/little, Value:Len/binary, Bin/binary>>) -> {Value, Bin}
 
 
 read_packet(Sock) ->
-  {ok, <<Len:24/little, Number>>} = gen_tcp:recv(Sock, 4),
+  {ok, <<Len:24/little, Sequence>>} = gen_tcp:recv(Sock, 4),
   case gen_tcp:recv(Sock, Len) of
     {ok, <<255, Code:16/little, Error/binary>>} -> {error, {Code, Error}};
-    {ok, Bin} -> % io:format("packet ~B\n~p\n", [Number, Bin]), 
-      {ok, Number, Bin}
+    {ok, Bin} -> {ok, Sequence, Bin}
   end.
 
 

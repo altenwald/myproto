@@ -152,13 +152,16 @@ encode_rows(Rows, Cols, Id) ->
         Payload = lists:foldl(fun({#column{type = Type}, Cell}, Binary) ->
             Cell1 = case Type of
                 _ when Cell == undefined -> undefined;
+                ?TYPE_TINY when Cell == true -> <<"1">>;
+                ?TYPE_TINY when Cell == false -> <<"0">>;
                 T when T == ?TYPE_TINY;
                        T == ?TYPE_SHORT;
                        T == ?TYPE_LONG;
                        T == ?TYPE_LONGLONG;
                        T == ?TYPE_INT24;
-                       T == ?TYPE_YEAR -> list_to_binary(integer_to_list(Cell));
-                _ when is_binary(Cell) -> Cell
+                       T == ?TYPE_YEAR -> integer_to_binary(Cell);
+                _ when is_binary(Cell) -> Cell;
+                _ -> error({cannot_encode,Type,Cell})
             end,
             CellEnc = case Cell of
                 undefined -> ?DATA_NULL;
