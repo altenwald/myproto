@@ -84,6 +84,8 @@ command(Cmd, Info, Sock) when is_integer(Cmd) ->
       {error, Error};
     ok ->
       {ok, {[],[]}};
+    {ok, #{}} = InsertInfo ->
+      InsertInfo;
     {_Cols, Columns} -> % response to query
       Rows = read_rows(Columns, Sock),
       {ok, {[{Field,type_name(Type)} || #column{name = Field, type = Type} <- Columns], Rows}};
@@ -97,10 +99,10 @@ read_columns(Sock) ->
     {ok, _, <<254, _/binary>>} ->
       [];
     {ok, _, <<0, Packet/binary>>} -> % 0 is STATUS_OK
-      {_AffectedRows, P1} = lenenc_str(Packet),
-      {_LastInsertId, P2} = lenenc_str(P1),
-      <<_Status:16/little, _Warnings:16/little, _Rest/binary>> = P2,
-      [];
+      {AffectedRows, P1} = varint(Packet),
+      {LastInsertId, P2} = varint(P1),
+      <<Status:16/little, Warnings:16/little, _Rest/binary>> = P2,
+      {ok, #{affected_rows => AffectedRows, last_insert_id => LastInsertId, status => Status, warnings => Warnings}};
     {ok, _, <<Cols>>} -> 
       {Cols, read_columns(Sock)}; % number of columns
     {ok, _, FieldBin} ->
@@ -175,6 +177,11 @@ lenenc_str(<<Len, Value:Len/binary, Bin/binary>>) when Len < 251 -> {Value, Bin}
 lenenc_str(<<252, Len:16/little, Value:Len/binary, Bin/binary>>) -> {Value, Bin};
 lenenc_str(<<253, Len:24/little, Value:Len/binary, Bin/binary>>) -> {Value, Bin}.
 
+
+varint(<<16#fe, Data:64/little, Rest/binary>>) -> {Data, Rest};
+varint(<<16#fd, Data:32/little, Rest/binary>>) -> {Data, Rest};
+varint(<<16#fc, Data:16/little, Rest/binary>>) -> {Data, Rest};
+varint(<<Data, Rest/binary>>) -> {Data, Rest}.
 
 
 read_packet(Sock) ->
