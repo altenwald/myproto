@@ -140,6 +140,7 @@
 -record(request, {
 	command :: integer(),
 	info :: binary() | sql() | user(),
+	text :: binary(),
 	continue = false :: boolean(),
 	id = 0 :: integer()
 }).

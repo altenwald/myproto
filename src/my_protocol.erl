@@ -179,7 +179,7 @@ decode(#my{buffer = Bin, state = normal, parse_query = ParseQuery, query_buffer 
             % {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
             Parsed -> Parsed
           end,
-          Packet#request{command = Command, info = SQL};
+          Packet#request{command = Command, info = SQL, text = Query};
         _ ->
           Packet#request{command = Command, info = Query}
       end,

@@ -40,10 +40,11 @@ connect(URL) ->
   % CLIENT_CONNECT_WITH_DB = 8
   CapFlags = 16#4003F7CF bor 8,
   send_packet(Sock, 1, [<<CapFlags:32/little, (MaxPacket-1):32/little, Charset>>, binary:copy(<<0>>, 23), 
-    [User, 0], Auth, DBName, 0]),
+    [User, 0], Auth]), % Need to send DBName,0 after auth, but mysql doesn't do it
 
   case read_packet(Sock) of
     {ok, 2, <<0,_/binary>> = _AuthReply} ->
+      command(init_db, DBName, Sock),
       {ok, Sock};
     {error, _} = Error ->
       Error
@@ -71,6 +72,9 @@ select(Query, Sock) ->
 
 command(show_fields, Info, Sock) ->
   command(4, Info, Sock);
+
+command(init_db, Info, Sock) ->
+  command(2, iolist_to_binary(Info), Sock);
 
 command(2 = Cmd, Info, Sock) ->
   send_packet(Sock, 0, [Cmd, Info]),

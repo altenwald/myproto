@@ -30,7 +30,7 @@ init_server(ListenerPid, Socket, Handler, _Args) ->
   proc_lib:init_ack({ok, self()}),
   ranch:accept_ack(ListenerPid),
 
-  My0 = my_protocol:init([{socket, Socket},{parse_query,false}]),
+  My0 = my_protocol:init([{socket, Socket},{parse_query,true}]),
   {ok, My1} = my_protocol:hello(42, My0),
   case my_protocol:next_packet(My1) of
     {ok, #request{info = #user{password = Password} = User}, My2} ->
@@ -80,6 +80,7 @@ terminate(_,_) -> ok.
 handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Server) ->
   case my_protocol:decode(My) of
     {ok, Query, My1} ->
+      lager:debug("input ~p", [Query]),
       case Handler:execute(Query, HandlerState) of
         {noreply, HandlerState1} ->
           handle_packets(Server#server{my = My1, state = HandlerState1});
@@ -221,7 +222,7 @@ default_reply(#request{command = field_list, info = Table}, Handler, State) ->
   {reply, {DB, Table, Fields}, State1} = Handler:metadata({fields,Table}, State),
   
   Reply = [#column{schema = DB, table = Table, org_table = Table, name = to_b(Field), org_name = to_b(Field), length = 20,
-    type = case Type of string -> ?TYPE_VAR_STRING; integer -> ?TYPE_LONGLONG end} || {Field,Type} <- Fields],
+    type = case Type of string -> ?TYPE_VAR_STRING; integer -> ?TYPE_LONGLONG; boolean -> ?TYPE_TINY end} || {Field,Type} <- Fields],
   {reply, #response{status=?STATUS_OK, info = {Reply}}, State1};    
 
 default_reply(#request{command = ping}, _Handler, State) ->
