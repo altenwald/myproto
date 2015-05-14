@@ -18,6 +18,7 @@ groups() ->
     insert_keys,
     insert_set,
     show,
+    transaction,
     set,
     select_all,
     select_strings,
@@ -41,6 +42,13 @@ groups() ->
     update_multiparams,
     update_where
   ]}].
+
+transaction(_) ->
+  'begin' = mysql_proto:parse("begin"),
+  'commit' = mysql_proto:parse("commit"),
+  'rollback' = mysql_proto:parse("rollback"),
+  ok.
+
 
 
 delete_simple(_) ->
@@ -214,6 +222,10 @@ select_from(_) ->
         tables = [#table{name = <<"data">>,alias = <<"d">>},
                   #table{name = <<"data2">>,alias = <<"d2">>}]}
     ),
+
+    #select{params = [#all{}], tables =[#table{name= <<"streams">>}],
+      order = [#order{key= <<"name">>, sort = asc}], limit =1} =
+    mysql_proto:parse("SELECT `streams`.* FROM `streams` ORDER BY `streams`.`name` ASC LIMIT 1"),
     ok.
 
 select_from_subquery(_) ->

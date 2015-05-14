@@ -1,6 +1,11 @@
-sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
+sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query /
+    transaction_query ~;
 
 % --------------- USE
+
+transaction_query <- space? cmd:(begin_cmd / commit / rollback) space? `
+    proplists:get_value(cmd,Node)
+`;
 
 use_query <- space? use space database space? `
     [_,_Use,_,Database,_] = Node,
@@ -116,8 +121,9 @@ select_limit <- ( select_order / select_group / select_where / select_from / sel
 order_datas <- head:order_data tail:( space? ',' space? order_data )* `
     [proplists:get_value(head, Node)|[ lists:nth(4,I) || I <- proplists:get_value(tail, Node) ]]
 `;
-order_data <- (key / integer) (space sort)? `
+order_data <- (key '.' key / key / integer ) (space sort)? `
     case Node of
+        [[_,<<".">>,Key], [_, Sort]] -> #order{key=Key, sort=Sort};
         [Key, [_, Sort]] -> #order{key=Key, sort=Sort};
         [Key, []] -> #order{key=Key, sort=asc}
     end
@@ -343,6 +349,9 @@ order_by <- #(?i)order +by# `order_by`;
 delete <- #(?i)delete +from# `delete`;
 insert <- #(?i)insert +into# `insert`;
 values <- #(?i)values# `values`;
+begin_cmd <- #(?i)begin# `'begin'`;
+commit <- #(?i)commit# `commit`;
+rollback <- #(?i)rollback# `rollback`;
 
 database <- key ~;
 

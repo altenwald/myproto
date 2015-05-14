@@ -219,7 +219,7 @@ default_reply(#request{info = #show{type = create_table, from = Table}}, Handler
   CreateTable = iolist_to_binary([
     "CREATE TABLE `", Table, "` (\n",
       tl(lists:flatmap(fun({Name,Type}) ->
-        [",", "`", atom_to_binary(Name,latin1), "` ", case Type of string -> "varchar(255)"; integer -> "bigint(20)" end, "\n"]
+        [",", "`", atom_to_binary(Name,latin1), "` ", case Type of string -> "varchar(255)"; integer -> "bigint(20)"; boolean -> "tinyint(1)" end, "\n"]
       end, Fields)),
     ")"
   ]),
