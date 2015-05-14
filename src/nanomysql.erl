@@ -8,7 +8,11 @@
 %% connect("mysql://user:password@127.0.0.1/dbname")
 %%
 connect(URL) ->
-  {ok, {mysql, AuthInfo, Host, Port, "/"++DBName, []}} = http_uri:parse(URL, [{scheme_defaults,[{mysql,3306}]}]),
+  {ok, {mysql, AuthInfo, Host, Port, "/"++DBName, Qs}} = http_uri:parse(URL, [{scheme_defaults,[{mysql,3306}]}]),
+  Query = case Qs of
+    "?" ++ Qs1 -> [ list_to_tuple(string:tokens(Part,"=")) || Part <- string:tokens(Qs1,"&") ];
+    "" -> []
+  end,
 
   [User, Password] = case string:tokens(AuthInfo, ":") of
     [U,P] -> [U,P];
@@ -44,7 +48,10 @@ connect(URL) ->
 
   case read_packet(Sock) of
     {ok, 2, <<0,_/binary>> = _AuthReply} ->
-      command(init_db, DBName, Sock),
+      case proplists:get_value("login", Query) of
+        "init_db" -> command(init_db, DBName, Sock);
+        _ -> ok
+      end,
       {ok, Sock};
     {error, _} = Error ->
       Error
@@ -58,7 +65,7 @@ connect(URL) ->
 }).
 
 execute(Query, Sock) ->
-  command(3, Query, Sock).
+  command(3, iolist_to_binary(Query), Sock).
 
 select(Query, Sock) ->
   case execute(Query, Sock) of
@@ -70,11 +77,9 @@ select(Query, Sock) ->
   end.
 
 
-command(show_fields, Info, Sock) ->
-  command(4, Info, Sock);
-
-command(init_db, Info, Sock) ->
-  command(2, iolist_to_binary(Info), Sock);
+command(ping, Info, Sock) -> command(14, Info, Sock);
+command(show_fields, Info, Sock) -> command(4, Info, Sock);
+command(init_db, Info, Sock) -> command(2, iolist_to_binary(Info), Sock);
 
 command(2 = Cmd, Info, Sock) ->
   send_packet(Sock, 0, [Cmd, Info]),
