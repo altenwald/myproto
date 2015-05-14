@@ -174,15 +174,15 @@ decode(#my{buffer = Bin, state = normal, parse_query = ParseQuery, query_buffer 
 
       Packet1 = case Command of
         'query' when ParseQuery ->
-          SQL = case mysql_proto:parse(Query) of
-            {fail,Expected} -> {parse_error, {fail,Expected}, Info};
-            % {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
-            Parsed -> Parsed
-          end,
           S = size(Query) - 1,
           Query2 = case Query of
             <<Query1:S/binary,0>> -> Query1;
             _ -> Query
+          end,
+          SQL = case mysql_proto:parse(Query2) of
+            {fail,Expected} -> {parse_error, {fail,Expected}, Info};
+            % {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
+            Parsed -> Parsed
           end,
           Packet#request{command = Command, info = SQL, text = Query2};
         _ ->

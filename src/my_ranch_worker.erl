@@ -89,9 +89,11 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
           {stop, normal, Server#server{my = My1, state = HandlerState1}};
         {reply, default, HandlerState1} ->
           {reply, Reply, HandlerState2} = default_reply(Query, Handler, HandlerState1),
+          lager:debug("output ~p", [Reply]),
           {ok, My2} = my_protocol:send_or_reply(Reply, My1),
           handle_packets(Server#server{my = My2, state = HandlerState2});          
         {reply, Response, HandlerState1} ->
+          lager:debug("output ~p", [Response]),
           {ok, My2} = my_protocol:send_or_reply(Response, My1),
           handle_packets(Server#server{my = My2, state = HandlerState1});
         {stop, Reason, HandlerState1} ->
@@ -120,6 +122,19 @@ default_reply(#request{info = #select{params=[#variable{name = <<"version_commen
   },
   {reply, #response{status=?STATUS_OK, info=Info}, State1};
 
+default_reply(#request{info = #select{params=[#variable{name = <<"global.max_allowed_packet">>}]}}, _Handler, State) ->
+  Info = {
+    [#column{name = <<"@@global.max_allowed_packet">>, type=?TYPE_LONG, length=20}],
+    [[65535]]
+  },
+  {reply, #response{status=?STATUS_OK, info=Info}, State};
+
+
+default_reply(#request{info = {use,Database}}, Handler, State) ->
+  {noreply, State1} = Handler:metadata({connect_db,Database}, State),
+  {reply, #response {
+    status=?STATUS_OK, info = <<"Changed to ", Database/binary>>, status_flags = 2
+  }, State1};
 
 default_reply(#request{command = init_db, info = Database}, Handler, State) ->
   {noreply, State1} = Handler:metadata({connect_db,Database}, State),

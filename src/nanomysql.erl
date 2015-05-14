@@ -110,8 +110,8 @@ read_columns(Sock) ->
     {ok, _, <<0, Packet/binary>>} -> % 0 is STATUS_OK
       {AffectedRows, P1} = varint(Packet),
       {LastInsertId, P2} = varint(P1),
-      <<Status:16/little, Warnings:16/little, _Rest/binary>> = P2,
-      {ok, #{affected_rows => AffectedRows, last_insert_id => LastInsertId, status => Status, warnings => Warnings}};
+      <<Status:16/little, Warnings:16/little, Rest/binary>> = P2,
+      {ok, #{affected_rows => AffectedRows, last_insert_id => LastInsertId, status => Status, warnings => Warnings, info => Rest}};
     {ok, _, <<Cols>>} -> 
       {Cols, read_columns(Sock)}; % number of columns
     {ok, _, FieldBin} ->

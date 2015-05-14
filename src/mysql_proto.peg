@@ -17,7 +17,7 @@ desc_query <- space? describe space table space? `
 
 % --------------- SHOW
 
-show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / show_fields ~;
+show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / show_variables / show_fields ~;
 
 show_status <- space? show space table_keyword space status space like space like:string space? `
     #show{type=status, from=proplists:get_value(like, Node)}
@@ -48,6 +48,10 @@ show_tables_like <- show_tables:show_tables space like space pattern:string spac
 
 show_databases <- space? show space databases space? `
     #show{type=databases}
+`;
+
+show_variables <- space? show space variables space? `
+    #show{type=variables}
 `;
 
 
@@ -319,6 +323,7 @@ fields_keyword <- #(?i)fields# `fields`;
 tables_keyword <- #(?i)tables# `tables`;
 table_keyword <- #(?i)table# `table`;
 databases <- #(?i)databases# `databases`;
+variables <- #(?i)variables# `variables`;
 update <- #(?i)update# `update`;
 select <- #(?i)select# `select`;
 set <- #(?i)set# `set`;
@@ -353,17 +358,20 @@ key <- '`' chars:(!'`' ("\\\\" / '\\`' / .))+ '`' / [a-zA-Z] [A-zA-Z0-9_]* `
 `;
 value <- string / null / number ~;
 
-var <- '@' '@'? key `
-    [_L,G,Key] = Node,
-    Scope = case G of
-        [] -> global;
-        _ -> local
+var <- '@' '@'? key ('.' key)? `
+    [L,G,Key1,Key2] = Node,
+    Key = iolist_to_binary([Key1,Key2]),
+    Scope = if
+        L == [] andalso G == [] -> session;
+        G == [] -> global;
+        true -> local
     end,
     #variable{name=Key, scope=Scope}
 `;
 
-set_var <- '@'? '@'? key `
-    [L,G,Key] = Node,
+set_var <- '@'? '@'? key ('.' key)? `
+    [L,G,Key1,Key2] = Node,
+    Key = iolist_to_binary([Key1,Key2]),
     Scope = if
         L == [] andalso G == [] -> session;
         G == [] -> global;

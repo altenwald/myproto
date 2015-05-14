@@ -32,6 +32,8 @@ groups() ->
     select_orderby,
     select_limit,
     select_arithmetic,
+    select_variable,
+
     server_select_simple,
     server_reject_password,
     server_very_long_query,
@@ -85,6 +87,7 @@ insert_set(_) ->
 
 show(_) ->
   #show{type=databases} = mysql_proto:parse("SHOW databases"),
+  #show{type=variables} = mysql_proto:parse("SHOW variables"),
   #show{type=tables, full = true} = mysql_proto:parse("SHOW FULL tables"),
   #show{type=tables, full = false} = mysql_proto:parse("SHOW tables"),
   #show{type=fields,full=true,from= <<"streams">>} = mysql_proto:parse("SHOW FULL FIELDS FROM `streams`"),
@@ -106,6 +109,15 @@ set(_) ->
       {#variable{name = <<"wait_timeout">>, scope = local}, 2147483}
   ]} = mysql_proto:parse("SET SQL_AUTO_IS_NULL=0, NAMES 'utf8', @@wait_timeout = 2147483"),
   ok.
+
+
+select_variable(_) ->
+  #select{params = [#variable{name = <<"max_allowed_packet">>, scope = local}]} = 
+    mysql_proto:parse("SELECT @@max_allowed_packet"),
+  #select{params = [#variable{name = <<"global.max_allowed_packet">>, scope = local}]} = 
+    mysql_proto:parse("SELECT @@global.max_allowed_packet"),
+  ok.
+
 
 
 select_all(_) ->
@@ -438,6 +450,7 @@ select_arithmetic(_) ->
         mysql_proto:parse("select * from data where a = b*3")
     ),
     ok.
+
 
 
 
