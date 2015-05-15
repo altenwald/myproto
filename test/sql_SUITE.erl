@@ -102,6 +102,11 @@ show(_) ->
   #show{type=fields,full=false,from= <<"streams">>} = mysql_proto:parse("SHOW FIELDS FROM `streams`"),
   #show{type=tables,full=false,from= {like,<<"streams">>}} = mysql_proto:parse("SHOW TABLES LIKE 'streams'"),
   #show{type=create_table,from= <<"streams">>} = mysql_proto:parse("SHOW CREATE TABLE `streams`"),
+  #show{type=variables, conditions=#condition{
+    nexo = eq,
+    op1 = #key{name = <<"Variable_name">>},
+    op2 = #value{value = <<"character_set_client">>}
+  }} = mysql_proto:parse("SHOW VARIABLES WHERE Variable_name = 'character_set_client'"),
   ok.
 
 

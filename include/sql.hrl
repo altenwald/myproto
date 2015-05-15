@@ -14,7 +14,7 @@
 -record(system_set, {query}).
 
 % SHOW
--record(show, {type, full, from}).
+-record(show, {type, full, from, conditions}).
 
 -type show() :: #show{}.
 

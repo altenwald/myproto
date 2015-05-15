@@ -156,6 +156,20 @@ default_reply(#request{info = #show{type = databases}}, Handler, State) ->
   {reply, Response, State1};
 
 
+default_reply(#request{info = #show{type = variables, conditions = #condition{nexo=eq,
+    op1 = #key{name= <<"Variable_name">>},
+    op2 = #value{value= <<"character_set_client">>}
+  }}}, _Handler, State) ->
+  ResponseFields = {
+    [#column{name = <<"Variable_name">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>},
+    #column{name = <<"Value">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>}],
+    [ 
+      [<<"character_set_client">>,<<"utf8">>]
+    ]
+  },
+  {reply, #response{status=?STATUS_OK, info = ResponseFields}, State};
+
+
 
 default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}]}}, _Handler, State) ->
   ResponseFields = {
