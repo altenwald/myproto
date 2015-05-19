@@ -149,19 +149,19 @@ encode_column(#column{
 
 encode_rows(Rows, Cols, Id) ->
     lists:foldl(fun(Values, {NewId, Data}) ->
-        Payload = lists:foldl(fun({#column{type = Type}, Cell}, Binary) ->
+        Payload = lists:foldl(fun({#column{type = Type, name = Name}, Cell}, Binary) ->
             Cell1 = case Type of
                 _ when Cell == undefined -> undefined;
-                ?TYPE_TINY when Cell == true -> <<"1">>;
-                ?TYPE_TINY when Cell == false -> <<"0">>;
-                T when T == ?TYPE_TINY;
-                       T == ?TYPE_SHORT;
-                       T == ?TYPE_LONG;
-                       T == ?TYPE_LONGLONG;
-                       T == ?TYPE_INT24;
-                       T == ?TYPE_YEAR -> integer_to_binary(Cell);
+                _ when Cell == true -> <<"1">>;
+                _ when Cell == false -> <<"0">>;
+                T when (T == ?TYPE_TINY orelse
+                       T == ?TYPE_SHORT orelse
+                       T == ?TYPE_LONG orelse
+                       T == ?TYPE_LONGLONG orelse
+                       T == ?TYPE_INT24 orelse
+                       T == ?TYPE_YEAR) andalso is_integer(Cell) -> integer_to_binary(Cell);
                 _ when is_binary(Cell) -> Cell;
-                _ -> error({cannot_encode,Type,Cell})
+                _ -> error({cannot_encode,Name,Type,Cell})
             end,
             CellEnc = case Cell of
                 undefined -> ?DATA_NULL;
