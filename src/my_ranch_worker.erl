@@ -161,14 +161,31 @@ default_reply(#request{info = #show{type = variables, conditions = #condition{ne
     op2 = #value{value= <<"character_set_client">>}
   }}}, _Handler, State) ->
   ResponseFields = {
+    [#column{name = <<"Collation">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Charset">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Id">>, type=?TYPE_LONG},
+    #column{name = <<"Default">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Compiled">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Sortlen">>, type=?TYPE_LONG}
+    ],
+    [ 
+      [<<"utf8_bin">>,<<"utf8">>,83,<<"">>,<<"Yes">>,1]
+    ]
+  },
+  {reply, #response{status=?STATUS_OK, info = ResponseFields}, State};
+
+
+default_reply(#request{info = #show{type = collation}}, _Handler, State) ->
+  ResponseFields = {
+
     [#column{name = <<"Variable_name">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>},
     #column{name = <<"Value">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>}],
     [ 
       [<<"character_set_client">>,<<"utf8">>]
     ]
+
   },
   {reply, #response{status=?STATUS_OK, info = ResponseFields}, State};
-
 
 
 default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}]}}, _Handler, State) ->

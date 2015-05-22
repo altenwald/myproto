@@ -23,7 +23,8 @@ desc_query <- space? describe space table space? `
 % --------------- SHOW
 
 show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / 
-    show_variables_where / show_variables / show_fields ~;
+    show_collation_where / show_collation /
+    show_variables_where / show_variables_like / show_variables / show_fields ~;
 
 show_status <- space? show space table_keyword space status space like space like:string space? `
     #show{type=status, from=proplists:get_value(like, Node)}
@@ -56,8 +57,21 @@ show_databases <- space? show space databases space? `
     #show{type=databases}
 `;
 
+show_collation_where <- space? show space collation space where space conditions:conditions space? `
+    #show{type=collation, conditions = proplists:get_value(conditions,Node)}
+`;
+
+show_collation <- space? show space collation space? `
+    #show{type=collation}
+`;
+
+
 show_variables_where <- space? show space variables space where space conditions:conditions space? `
     #show{type=variables, conditions = proplists:get_value(conditions,Node)}
+`;
+
+show_variables_like <- space? show space variables space like space pattern:string space? `
+    #show{type=variables, conditions = {like, proplists:get_value(pattern,Node)}}
 `;
 
 show_variables <- space? show space variables space? `
@@ -334,6 +348,7 @@ fields_keyword <- #(?i)fields# `fields`;
 tables_keyword <- #(?i)tables# `tables`;
 table_keyword <- #(?i)table# `table`;
 databases <- #(?i)databases# `databases`;
+collation <- #(?i)collation# `collation`;
 variables <- #(?i)variables# `variables`;
 update <- #(?i)update# `update`;
 select <- #(?i)select# `select`;

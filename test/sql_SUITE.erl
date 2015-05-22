@@ -18,6 +18,7 @@ groups() ->
     insert_keys,
     insert_set,
     show,
+    show_like,
     transaction,
     set,
     select_all,
@@ -107,8 +108,18 @@ show(_) ->
     op1 = #key{name = <<"Variable_name">>},
     op2 = #value{value = <<"character_set_client">>}
   }} = mysql_proto:parse("SHOW VARIABLES WHERE Variable_name = 'character_set_client'"),
+
+  #show{type=collation, conditions=#condition{
+    nexo = eq,
+    op1 = #key{name= <<"Charset">>},
+    op2 = #value{value = <<"utf8">>}
+  }} = mysql_proto:parse("show collation where Charset = 'utf8'"),
   ok.
 
+
+show_like(_) ->
+  #show{type=variables, conditions = {like, <<"sql_mode">>}} = mysql_proto:parse("SHOW VARIABLES LIKE 'sql_mode'"),
+  ok.
 
 
 
