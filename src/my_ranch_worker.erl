@@ -156,10 +156,7 @@ default_reply(#request{info = #show{type = databases}}, Handler, State) ->
   {reply, Response, State1};
 
 
-default_reply(#request{info = #show{type = variables, conditions = #condition{nexo=eq,
-    op1 = #key{name= <<"Variable_name">>},
-    op2 = #value{value= <<"character_set_client">>}
-  }}}, _Handler, State) ->
+default_reply(#request{info = #show{type = collation}}, _Handler, State) ->
   ResponseFields = {
     [#column{name = <<"Collation">>, type=?TYPE_VAR_STRING, length=20},
     #column{name = <<"Charset">>, type=?TYPE_VAR_STRING, length=20},
@@ -175,17 +172,42 @@ default_reply(#request{info = #show{type = variables, conditions = #condition{ne
   {reply, #response{status=?STATUS_OK, info = ResponseFields}, State};
 
 
-default_reply(#request{info = #show{type = collation}}, _Handler, State) ->
+
+default_reply(#request{info = #show{type = variables}}, Handler, State) ->
+
+  {Version, State1} = case Handler:metadata(version, State) of
+    {reply, Vsn, State1_} -> {iolist_to_binary(Vsn), State1_};
+    {noreply, State1_} -> {<<"5.6.0">>, State1_}
+  end,
+
+  {Mega, Sec, Micro} = erlang:now(),
+  Timestamp = iolist_to_binary(io_lib:format("~B.~6..0B", [Mega*1000000 + Sec, Micro])),
+
+  Variables = [
+    {<<"sql_mode">>, <<"NO_ENGINE_SUBSTITUTION">>},
+    {<<"auto_increment_increment">>, <<"1">>},
+    {<<"character_set_client">>, <<"utf8">>},
+    {<<"character_set_connection">>, <<"utf8">>},
+    {<<"character_set_database">>, <<"utf8">>},
+    {<<"character_set_results">>, <<"utf8">>},
+    {<<"character_set_server">>, <<"utf8">>},
+    {<<"character_set_system">>, <<"utf8">>},
+    {<<"date_format">>, <<"%Y-%m-%d">>},
+    {<<"datetime_format">>, <<"%Y-%m-%d %H:%i:%s">>},
+    {<<"default_storage_engine">>, <<"Flussonic">>},
+    {<<"timestamp">>, Timestamp},
+    {<<"version">>, Version}
+  ],
+
   ResponseFields = {
 
     [#column{name = <<"Variable_name">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>},
     #column{name = <<"Value">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>}],
-    [ 
-      [<<"character_set_client">>,<<"utf8">>]
-    ]
+
+    [tuple_to_list(V) || V <- Variables]
 
   },
-  {reply, #response{status=?STATUS_OK, info = ResponseFields}, State};
+  {reply, #response{status=?STATUS_OK, info = ResponseFields}, State1};
 
 
 default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}]}}, _Handler, State) ->
