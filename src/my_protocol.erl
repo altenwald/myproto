@@ -122,7 +122,7 @@ decode(Bin, #my{} = My) ->
 -spec buffer_bytes(binary(), my()) -> my().
 
 buffer_bytes(Bin, #my{buffer = Buffer} = My) when size(Buffer) > 0 andalso size(Bin) > 0 ->
-  My#my{buffer = <<Bin/binary, Buffer/binary>>};
+  My#my{buffer = <<Buffer/binary, Bin/binary>>};
 
 buffer_bytes(Bin, #my{} = My) ->
   My#my{buffer = Bin}.

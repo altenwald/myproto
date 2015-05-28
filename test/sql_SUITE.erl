@@ -41,8 +41,13 @@ groups() ->
     server_very_long_query,
     update_simple,
     update_multiparams,
-    update_where
+    update_where,
+    long_query_2
   ]}].
+
+
+init_per_suite(Config) -> application:ensure_all_started(ranch), Config.
+end_per_suite(Config) -> Config.
 
 transaction(_) ->
   'begin' = mysql_proto:parse("begin"),
@@ -637,4 +642,38 @@ server_very_long_query(_) ->
 
   % receive {'DOWN', _, _, Client, Reason} -> normal = Reason end,
   ok.
+
+long_query_2(_) ->
+  {ok,_} = test_handler:start_server(long_query_2, 0),
+  
+  Port = test_handler:existing_port(long_query_2),
+  ConnStr = <<"mysql://user:user@127.0.0.1:", (integer_to_binary(Port))/binary, "/test_db?login=init_db">>,
+  
+  Values0 = binary:copy(<<"'test_name',">>, 500),
+  Values = <<Values0/binary, "'test_name'">>,
+  Owner = self(),
+
+  Pid = spawn(fun() -> 
+    Result = 
+    receive
+      start -> 
+        {ok, Connection} = nanomysql:connect(binary_to_list(ConnStr)),
+        nanomysql:execute(<<"select * from test where name in (", Values/binary, ")">>, Connection),
+        ok
+    after 100 -> 
+      {error, not_started}
+    end,
+    Owner ! Result
+  end),
+
+  erlang:monitor(process, Pid),
+  Pid ! start,
+
+  ok = receive 
+    Msg -> Msg
+  after 1000 -> 
+    exit(Pid, kill),
+    {error, timeout}
+  end.
+
 
