@@ -80,8 +80,8 @@ terminate(_,_) -> ok.
 handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Server) ->
   case my_protocol:decode(My) of
     {ok, Query, My1} ->
-      lager:debug("input ~p", [Query]),
-      case Handler:execute(Query, HandlerState) of
+      % lager:debug("input ~p", [Query]),
+      try Handler:execute(Query, HandlerState) of
         {noreply, HandlerState1} ->
           handle_packets(Server#server{my = My1, state = HandlerState1});
         {reply, default, HandlerState1} when Query#request.command == quit ->
@@ -89,16 +89,24 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
           {stop, normal, Server#server{my = My1, state = HandlerState1}};
         {reply, default, HandlerState1} ->
           {reply, Reply, HandlerState2} = default_reply(Query, Handler, HandlerState1),
-          lager:debug("output ~p", [Reply]),
+          % lager:debug("output ~p", [Reply]),
           {ok, My2} = my_protocol:send_or_reply(Reply, My1),
           handle_packets(Server#server{my = My2, state = HandlerState2});          
         {reply, Response, HandlerState1} ->
-          lager:debug("output ~p", [Response]),
+          % lager:debug("output ~p", [Response]),
           {ok, My2} = my_protocol:send_or_reply(Response, My1),
           handle_packets(Server#server{my = My2, state = HandlerState1});
         {stop, Reason, HandlerState1} ->
           Handler:terminate(Reason, HandlerState1),
           {stop, Reason, Server#server{my = My1, state = HandlerState1}}
+      catch
+        C:E ->
+          ST = erlang:get_stacktrace(),
+          lager:info("~p:~p in MySQL server handler\n"
+            "  * Last input: ~p\n"
+            "  * Stacktrace: ~p\n"
+            "  * State: ~p", [C, E, Query, ST, HandlerState]),
+          {stop, E, Server}
       end;
     {more, My1} ->
       {noreply, Server#server{my = My1}}

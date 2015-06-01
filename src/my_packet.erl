@@ -115,7 +115,7 @@ encode_column(#column{
         schema = Schema, table = Table, name = Name,
         charset = Charset, length = L, type = Type,
         flags = Flags, decimals = Decimals, org_name = ON
-    }=Column, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
+    }=_Column, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
     is_integer(Charset), is_integer(Type), is_integer(Flags), 
     is_integer(Decimals) ->
     SchemaLen = my_datatypes:number_to_var_integer(byte_size(Schema)),
@@ -131,7 +131,7 @@ encode_column(#column{
         {?TYPE_LONGLONG,undefined} -> 16#15;
         {_,undefined} -> 0
     end,
-    lager:debug("Column to encode: ~p~n", [Column]),
+    % lager:debug("Column to encode: ~p~n", [Column]),
     Payload = <<
         3:8, "def", 
         SchemaLen/binary, Schema/binary,
