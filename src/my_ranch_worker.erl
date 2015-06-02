@@ -80,7 +80,8 @@ terminate(_,_) -> ok.
 handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Server) ->
   case my_protocol:decode(My) of
     {ok, Query, My1} ->
-      % lager:debug("input ~p", [Query]),
+      % #request{text = Text, command = Command} = Query,
+      % lager:info("~s ~s", [Command, Text]),
       try Handler:execute(Query, HandlerState) of
         {noreply, HandlerState1} ->
           handle_packets(Server#server{my = My1, state = HandlerState1});
@@ -89,11 +90,11 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
           {stop, normal, Server#server{my = My1, state = HandlerState1}};
         {reply, default, HandlerState1} ->
           {reply, Reply, HandlerState2} = default_reply(Query, Handler, HandlerState1),
-          % lager:debug("output ~p", [Reply]),
+          % lager:info("output ~p", [Reply]),
           {ok, My2} = my_protocol:send_or_reply(Reply, My1),
           handle_packets(Server#server{my = My2, state = HandlerState2});          
         {reply, Response, HandlerState1} ->
-          % lager:debug("output ~p", [Response]),
+          % lager:info("output ~p", [Response]),
           {ok, My2} = my_protocol:send_or_reply(Response, My1),
           handle_packets(Server#server{my = My2, state = HandlerState1});
         {stop, Reason, HandlerState1} ->
@@ -133,7 +134,14 @@ default_reply(#request{info = #select{params=[#variable{name = <<"version_commen
 default_reply(#request{info = #select{params=[#variable{name = <<"global.max_allowed_packet">>}]}}, _Handler, State) ->
   Info = {
     [#column{name = <<"@@global.max_allowed_packet">>, type=?TYPE_LONG, length=20}],
-    [[65535]]
+    [[4194304]]
+  },
+  {reply, #response{status=?STATUS_OK, info=Info}, State};
+
+default_reply(#request{info = #select{params=[#variable{name = <<"tx_isolation">>, scope = local}]}}, _Handler, State) ->
+  Info = {
+    [#column{name = <<"@@tx_isolation">>, type=?TYPE_VARCHAR}],
+    [[<<"REPEATABLE-READ">>]]
   },
   {reply, #response{status=?STATUS_OK, info=Info}, State};
 

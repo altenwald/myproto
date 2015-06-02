@@ -5,7 +5,7 @@
 main([URL|_Args]) ->
   code:add_pathz("ebin"),
   {ok, Sock} = nanomysql:connect(URL),
-  {ok, {mysql, _, _Host, _Port, "/"++_DBName, []}} = http_uri:parse(URL, [{scheme_defaults,[{mysql,3306}]}]),
+  {ok, {mysql, _, _Host, _Port, "/"++_DBName, _}} = http_uri:parse(URL, [{scheme_defaults,[{mysql,3306}]}]),
   % DB = list_to_binary(DBName),
   % nanomysql:execute("show databases", Sock),
   % {ok, {_, Rows}} = nanomysql:execute("show tables", Sock),
