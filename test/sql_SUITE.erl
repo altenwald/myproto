@@ -17,6 +17,7 @@ groups() ->
     insert_simple,
     insert_keys,
     insert_set,
+    describe,
     show,
     show_like,
     transaction,
@@ -56,6 +57,8 @@ transaction(_) ->
   ok.
 
 
+describe(_) ->
+  #describe{table = #table{name = <<"streams">>}} = mysql_proto:parse("DESCRIBE `streams`").
 
 delete_simple(_) ->
   #delete{table=#table{name = <<"mitabla">>, alias = <<"mitabla">>}} = mysql_proto:parse("delete from mitabla").

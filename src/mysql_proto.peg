@@ -17,7 +17,7 @@ use_query <- space? use space database space? `
 
 desc_query <- space? describe space table space? `
     [_,_Desc,_,Table,_] = Node,
-    {describe, Table}
+    #describe{table = Table}
 `;
 
 % --------------- SHOW
@@ -338,7 +338,7 @@ primary <- par:("(" space? add:additive space? ")") / dec:param_wa `
 status <- #(?i)status# `status`;
 like <- #(?i)like# `like`;
 use <- #(?i)use# `use`;
-describe <- #(?i)desc# / #(?i)describe# `describe`;
+describe <- #(?i)describe# / #(?i)desc# `describe`;
 limit <- #(?i)limit# `limit`;
 offset <- #(?i)offset# `offset`;
 full <- #(?i)full# `full`;

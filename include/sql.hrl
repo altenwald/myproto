@@ -38,6 +38,9 @@
 % INSERT
 -record(insert, {table, values}).
 
+% DESCRIBE
+-record(describe, {table}).
+
 -type insert() :: #insert{}.
 
 -type sql() :: show() | select() | update() | delete() | insert().
