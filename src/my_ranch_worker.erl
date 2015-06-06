@@ -248,7 +248,8 @@ default_reply(#request{info = #show{type = tables}}, Handler, State) ->
   Response = #response{status=?STATUS_OK, info = ResponseFields},
   {reply, Response, State1};
 
-
+default_reply(#request{info = #describe{table = #table{name = Table}}}, Handler, State) ->
+  default_reply(#request{info = #show{type = fields, from = Table, full = false }}, Handler, State);
 
 default_reply(#request{info = #show{type = fields, from = Table, full = Full}}, Handler, State) ->
   {reply, {_DB, Table, Fields}, State1} = Handler:metadata({fields, Table}, State),
