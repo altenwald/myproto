@@ -36,6 +36,7 @@ groups() ->
     select_limit,
     select_arithmetic,
     select_variable,
+    select_in,
 
     server_select_simple,
     server_reject_password,
@@ -150,6 +151,21 @@ select_variable(_) ->
     mysql_proto:parse("SELECT @@global.max_allowed_packet"),
   ok.
 
+
+select_in(_) ->
+  #select{params=[#all{}],
+    conditions=#condition{nexo=in,
+      op1 = #key{name= <<"n">>},
+      op2 = #subquery{subquery = [<<"a">>,<<"b">>]}
+    }
+  } = mysql_proto:parse(<<"SELECT * from b where n in ('a','b') order by a">>),
+  #select{params=[#all{}],
+    conditions=#condition{nexo=not_in,
+      op1 = #key{name= <<"n">>},
+      op2 = #subquery{subquery = [<<"a">>,<<"b">>]}
+      }
+  } = mysql_proto:parse(<<"SELECT * from b where n not in ('a','b') order by a">>),
+  ok.
 
 
 select_all(_) ->

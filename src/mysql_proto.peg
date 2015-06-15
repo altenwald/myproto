@@ -261,7 +261,7 @@ set_datas <- head:set_data tail:( space? ',' space? set_data )* `
 set_data <- value ~;
 
 nexo <- nexo_and / nexo_or ~;
-set_comp <- in / exist / all / any ~;
+set_comp <- not_in / in / exist / all / any ~;
 
 params <- head:param tail:( space? ',' space? param )* `
     [proplists:get_value(head, Node)|[ lists:nth(4,I) || I <- proplists:get_value(tail, Node) ]]
@@ -358,6 +358,7 @@ where <- #(?i)where# `where`;
 as <- #(?i)as# `as`;
 nexo_or <- #(?i)or# `nexo_or`;
 nexo_and <- #(?i)and# `nexo_and`;
+not_in <- #(?i)not +in# `not_in`;
 in <- #(?i)in# `in`;
 any <- #(?i)any# `in`;
 exist <- #(?i)exist# `exist`;
