@@ -270,7 +270,7 @@ default_reply(#request{info = #show{type = fields, from = Table, full = Full}}, 
   end,
   Rows = lists:map(fun({Name,Type}) ->
     [atom_to_binary(Name,latin1),
-    case Type of string -> <<"varchar(255)">>; _ -> <<"bigint(20)">> end,
+    case Type of string -> <<"varchar(255)">>; boolean -> <<"tinyint(1)">>; _ -> <<"bigint(20)">> end,
     <<"YES">>,
     <<>>,
     undefined,
