@@ -93,7 +93,7 @@ set_query <- set space head:system_set tail:(space? ',' space? s:system_set )* s
     #system_set{query = [Head|Tail]}
 `;
 
-system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string `
+system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string / names:'NAMES' space val:charset `
     case proplists:get_value(names,Node) of
         undefined ->
             {proplists:get_value(var,Node), proplists:get_value(val,Node)};
@@ -412,6 +412,7 @@ set_var <- '@'? '@'? key ('.' key)? `
 
 
 % Basic types
+charset <- "utf8" / "latin1" ~;
 string <- "'" ((!"'" ("\\\\" / "\\'" / .)) ("''")?)* "'" `binary:replace(iolist_to_binary(lists:nth(2, Node)), <<"''">>, <<"'">>)`;
 number <- float / integer ~;
 integer <- [0-9]+ `
