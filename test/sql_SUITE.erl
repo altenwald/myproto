@@ -135,6 +135,7 @@ show_like(_) ->
 set(_) ->
   #system_set{query=[{#variable{name = <<"a">>, scope = session},0}]} = mysql_proto:parse("SET a=0"),
   #system_set{query=[{#variable{name = <<"NAMES">>},<<"utf8">>}]} = mysql_proto:parse("SET NAMES 'utf8'"),
+  #system_set{query=[{#variable{name = <<"NAMES">>},<<"utf8">>}]} = mysql_proto:parse("SET NAMES utf8"),
 
   #system_set{query=[
       {#variable{name = <<"SQL_AUTO_IS_NULL">>, scope = session},0},
