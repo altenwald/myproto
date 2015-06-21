@@ -39,7 +39,7 @@ start(Socket, Id, Handler, ParseQuery) ->
 -spec sha1_hex(Data :: binary()) -> binary().
 
 sha1_hex(Data) ->
-    to_hex(crypto:sha(Data)).
+    to_hex(crypto:hash(sha, Data)).
 
 -spec to_hex(Hash :: binary()) -> binary().
 
@@ -51,10 +51,10 @@ to_hex(<<X:160/big-unsigned-integer>>) ->
 -spec check_sha1_pass(Pass::binary(), Salt::binary()) -> binary().
 
 check_sha1_pass(Stage, Salt) ->
-    Res = crypto:sha_final(
-        crypto:sha_update(
-            crypto:sha_update(crypto:sha_init(), Salt),
-            crypto:sha(Stage)
+    Res = crypto:hash_final(
+        crypto:hash_update(sha,
+            crypto:hash_update(sha, crypto:hash_init(sha, Salt)),
+            crypto:hash(sha, Stage)
         )
     ),
     crypto:exor(Stage, Res).
@@ -62,7 +62,7 @@ check_sha1_pass(Stage, Salt) ->
 -spec check_clean_pass(Pass::binary(), Salt::binary()) -> binary().
 
 check_clean_pass(Pass, Salt) ->
-    check_sha1_pass(crypto:sha(Pass), Salt).
+    check_sha1_pass(crypto:hash(sha, Pass), Salt).
 
 %% callbacks
 
