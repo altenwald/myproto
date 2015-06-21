@@ -52,8 +52,8 @@ to_hex(<<X:160/big-unsigned-integer>>) ->
 
 check_sha1_pass(Stage, Salt) ->
     Res = crypto:hash_final(
-        crypto:hash_update(sha,
-            crypto:hash_update(sha, crypto:hash_init(sha, Salt)),
+        crypto:hash_update(
+            crypto:hash_update(crypto:hash_init(sha), Salt),
             crypto:hash(sha, Stage)
         )
     ),
