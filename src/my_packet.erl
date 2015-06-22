@@ -203,11 +203,14 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
                     unpack_zero(Info1)
             end
     end,
+
+    HasPluginAuth = proplists:get_value(plugin_auth, Caps),
     {DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
         % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
         % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
-        % true ->
-        %     unpack_zero(Info2);
+        % so we write here a dirty hack for pymysql
+        true when HasPluginAuth == undefined ->
+            unpack_zero(Info2);
         _ ->
             {undefined, Info2}
     end,
