@@ -209,7 +209,7 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
         % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
         % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
         % so we write here a dirty hack for pymysql
-        true when HasPluginAuth == undefined ->
+        true when HasPluginAuth == undefined andalso size(Info2) > 0 ->
             unpack_zero(Info2);
         _ ->
             {undefined, Info2}

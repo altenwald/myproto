@@ -196,7 +196,7 @@ default_reply(#request{info = #show{type = variables}}, Handler, State) ->
     {noreply, State1_} -> {<<"5.6.0">>, State1_}
   end,
 
-  {Mega, Sec, Micro} = erlang:now(),
+  {Mega, Sec, Micro} = os:timestamp(),
   Timestamp = iolist_to_binary(io_lib:format("~B.~6..0B", [Mega*1000000 + Sec, Micro])),
 
   Variables = [
