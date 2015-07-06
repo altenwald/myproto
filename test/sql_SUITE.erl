@@ -44,7 +44,15 @@ groups() ->
     update_simple,
     update_multiparams,
     update_where,
-    long_query_2
+    long_query_2,
+    %account management section
+    insert_user,
+    grant_sql,
+    drop_user,
+    rename_sql,
+    revoke_sql,
+    set_password
+
   ]}].
 
 
@@ -146,9 +154,9 @@ set(_) ->
 
 
 select_variable(_) ->
-  #select{params = [#variable{name = <<"max_allowed_packet">>, scope = local}]} = 
+  #select{params = [#variable{name = <<"max_allowed_packet">>, scope = local}]} =
     mysql_proto:parse("SELECT @@max_allowed_packet"),
-  #select{params = [#variable{name = <<"global.max_allowed_packet">>, scope = local}]} = 
+  #select{params = [#variable{name = <<"global.max_allowed_packet">>, scope = local}]} =
     mysql_proto:parse("SELECT @@global.max_allowed_packet"),
   ok.
 
@@ -273,27 +281,27 @@ select_from_subquery(_) ->
     ?assertEqual(mysql_proto:parse("select * from (select 1 as uno,2 as dos)"),
         #select{
     params = [#all{}],
-    tables = 
+    tables =
         [#subquery{
-             subquery = 
+             subquery =
                  #select{
-                     params = 
+                     params =
                          [#value{name = <<"uno">>,value = 1},
                           #value{name = <<"dos">>,value = 2}]}}]}
     ),
     ?assertEqual(mysql_proto:parse("select (select 1) as id, t.uno from (select 2) as t"),
         #select{
-    params = 
+    params =
         [#subquery{
              name = <<"id">>,
-             subquery = 
+             subquery =
                  #select{
                      params = [#value{name = undefined,value = 1}]}},
          #key{alias = <<"uno">>,name = <<"uno">>,table = <<"t">>}],
-    tables = 
+    tables =
         [#subquery{
              name = <<"t">>,
-             subquery = 
+             subquery =
                  #select{
                      params = [#value{value = 2}]}}]}
     ),
@@ -319,19 +327,19 @@ select_where(_) ->
         #select{
     params = [#all{}],
     tables = [#table{name = <<"tabla">>,alias = <<"tabla">>}],
-    conditions = 
+    conditions =
         #condition{
             nexo = nexo_and,
-            op1 = 
+            op1 =
                 #condition{
                     nexo = eq,
-                    op1 = 
+                    op1 =
                         #key{alias = <<"uno">>,name = <<"uno">>},
                     op2 = #value{value = 1}},
-            op2 = 
+            op2 =
                 #condition{
                     nexo = lt,
-                    op1 = 
+                    op1 =
                         #key{alias = <<"dos">>,name = <<"dos">>},
                     op2 = #value{value = 2}}}}
     ),
@@ -339,28 +347,28 @@ select_where(_) ->
         #select{
     params = [#all{}],
     tables = [#table{name = <<"tabla">>,alias = <<"tabla">>}],
-    conditions = 
+    conditions =
         #condition{
             nexo = nexo_and,
-            op1 = 
+            op1 =
                 #condition{
                     nexo = eq,
-                    op1 = 
+                    op1 =
                         #key{alias = <<"uno">>,name = <<"uno">>},
                     op2 = #value{value = 1}},
-            op2 = 
+            op2 =
                 #condition{
                     nexo = nexo_and,
-                    op1 = 
+                    op1 =
                         #condition{
                             nexo = lt,
-                            op1 = 
+                            op1 =
                                 #key{alias = <<"dos">>,name = <<"dos">>},
                             op2 = #value{value = 2}},
-                    op2 = 
+                    op2 =
                         #condition{
                             nexo = gt,
-                            op1 = 
+                            op1 =
                                 #key{alias = <<"tres">>,name = <<"tres">>},
                             op2 = #value{value = 3}}}}}
     ),
@@ -373,35 +381,35 @@ select_where(_) ->
         #select{
     params = [#all{}],
     tables = [#table{name = <<"a">>,alias = <<"a">>}],
-    conditions = 
+    conditions =
         #condition{
             nexo = nexo_and,
-            op1 = 
+            op1 =
                 #condition{
                     nexo = nexo_and,
-                    op1 = 
+                    op1 =
                         #condition{
                             nexo = eq,
                             op1 = #key{alias = <<"a">>,name = <<"a">>},
                             op2 = #value{value = 1}},
-                    op2 = 
+                    op2 =
                         #condition{
                             nexo = eq,
                             op1 = #key{alias = <<"b">>,name = <<"b">>},
                             op2 = #value{value = 2}}},
-            op2 = 
+            op2 =
                 #condition{
                     nexo = eq,
                     op1 = #key{alias = <<"c">>,name = <<"c">>},
                     op2 = #value{value = 3}}}}
     ),
     ok.
-    
+
 select_function(_) ->
-    ?assertEqual(mysql_proto:parse("select count(*)"), 
+    ?assertEqual(mysql_proto:parse("select count(*)"),
         #select{params = [#function{name = <<"count">>, params = [#all{}]}]}
     ),
-    ?assertEqual(mysql_proto:parse("select concat('hola', 'mundo')"), 
+    ?assertEqual(mysql_proto:parse("select concat('hola', 'mundo')"),
         #select{params = [#function{name = <<"concat">>,
                             params = [#value{value = <<"hola">>},
                                       #value{value = <<"mundo">>}]}]}
@@ -544,7 +552,7 @@ update_where(_) ->
             table=#table{alias = <<"mitabla">>, name = <<"mitabla">>},
             set=[#set{key = <<"dato">>, value=#value{value=1}}],
             conditions=#condition{
-                nexo=eq, 
+                nexo=eq,
                 op1=#key{alias = <<"dato">>, name = <<"dato">>},
                 op2=#value{value=5}
             }
@@ -587,7 +595,7 @@ server_select_simple(_) ->
   #select{
     params = [#key{name = <<"input">>},#key{name = <<"output">>}],
     tables = [#table{name = <<"minute_stats">>}],
-    conditions = #condition{nexo = nexo_and, 
+    conditions = #condition{nexo = nexo_and,
       op1 = #condition{nexo = eq, op1 = #key{name = <<"source">>},op2 = #value{value = <<"net">>}},
       op2 = #condition{nexo = nexo_and,
         op1 = #condition{nexo = gte, op1 = #key{name = <<"time">>}, op2 = #value{value = <<"2013-09-05">>}},
@@ -665,22 +673,22 @@ server_very_long_query(_) ->
 
 long_query_2(_) ->
   {ok,_} = test_handler:start_server(long_query_2, 0),
-  
+
   Port = test_handler:existing_port(long_query_2),
   ConnStr = <<"mysql://user:user@127.0.0.1:", (integer_to_binary(Port))/binary, "/test_db?login=init_db">>,
-  
+
   Values0 = binary:copy(<<"'test_name',">>, 500),
   Values = <<Values0/binary, "'test_name'">>,
   Owner = self(),
 
-  Pid = spawn(fun() -> 
-    Result = 
+  Pid = spawn(fun() ->
+    Result =
     receive
-      start -> 
+      start ->
         {ok, Connection} = nanomysql:connect(binary_to_list(ConnStr)),
         nanomysql:execute(<<"select * from test where name in (", Values/binary, ")">>, Connection),
         ok
-    after 100 -> 
+    after 100 ->
       {error, not_started}
     end,
     Owner ! Result
@@ -689,11 +697,109 @@ long_query_2(_) ->
   erlang:monitor(process, Pid),
   Pid ! start,
 
-  ok = receive 
+  ok = receive
     Msg -> Msg
-  after 1000 -> 
+  after 1000 ->
     exit(Pid, kill),
     {error, timeout}
   end.
 
+insert_user()->
+  ?assertEqual(
+      mysql_proto:parse("CREATE USER 'jeffrey'@'localhost' IDENTIFIED BY 'mypass'"),
+      #management{action = create,
+            data = #account{access = [#value{name = <<"password">>,
+                    value = <<"mypass">>},#value{name = <<"username">>,
+                                                value = <<"jeffrey">>},
+                                         #value{name = <<"host">>,
+                                                value = <<"localhost">>}]}}
+  ),
+  ?assertEqual(
+      mysql_proto:parse("CREATE USER 'jeffrey'@'localhost' IDENTIFIED BY password 'mypass'"),
+      #management{action = create,
+            data = #account{access = [#value{name = <<"password">>,
+                    value = <<"mypass">>},
+                    #value{name = <<"username">>,
+                                                value = <<"jeffrey">>},
+                                         #value{name = <<"host">>,
+                                                value = <<"localhost">>}
+                                         ]}}
+  ),
+  ok.
 
+grant_sql()->
+  ?assertEqual(
+    mysql_proto:parse("GRANT ALL ON db1.* TO 'jeffrey'@'localhost'"),
+    #management{action = grant,
+            data = #permission{on = #value{name = <<"db1">>,
+                                           value = #all{table = undefined}},
+                               account = [#value{name = <<"username">>,
+                                                 value = <<"jeffrey">>},
+                                          #value{name = <<"host">>,value = <<"localhost">>}],
+                               conditions = all}}),
+  ?assertEqual(
+    mysql_proto:parse("GRANT USAGE ON *.* TO 'jeffrey'@'localhost' WITH MAX_QUERIES_PER_HOUR 90"),
+    #management{action = grant,
+            data = #permission{on = #all{table = undefined},
+                               account = [#value{name = <<"username">>,
+                                                 value = <<"jeffrey">>},
+                                          #value{name = <<"host">>,value = <<"localhost">>}],
+                               conditions = [#value{name = max_queries_per_hour,
+                                                    value = 90}]}}),
+    ?assertEqual(
+      mysql_proto:parse("GRANT USAGE ON *.* TO 'jeffrey'@'localhost' WITH MAX_QUERIES_PER_HOUR 90 MAX_UPDATES_PER_HOUR 90"),
+      #management{action = grant,
+            data = #permission{on = #all{table = undefined},
+                               account = [#value{name = <<"username">>,
+                                                 value = <<"jeffrey">>},
+                                          #value{name = <<"host">>,value = <<"localhost">>}],
+                               conditions = [#value{name = max_queries_per_hour,value = 90},
+                                             #value{name = max_updates_per_hour,value = 90}]}}),
+     ok.
+
+drop_user()->
+  ?assertEqual(
+    mysql_proto:parse("DROP USER 'jeffrey'@'localhost'"),
+    #management{action = drop,
+            data = [#value{name = <<"username">>,value = <<"jeffrey">>},
+                    #value{name = <<"host">>,value = <<"localhost">>}]}),
+     ok.
+
+rename_sql()->
+  ?assertEqual(
+    mysql_proto:parse("RENAME USER 'jeffrey'@'localhost' TO 'jeff'@'127.0.0.1'"),
+    #management{action = rename,
+            data = [#account{access = [#value{name = <<"username">>,value = <<"jeffrey">>},
+                                       #value{name = <<"host">>,value = <<"localhost">>}]},
+                    #value{name = <<"username">>,value = <<"jeff">>},
+                    #value{name = <<"host">>,value = <<"127.0.0.1">>}]}),
+     ok.
+
+revoke_sql()->
+  ?assertEqual(
+  mysql_proto:parse("REVOKE INSERT ON db.* FROM 'jeffrey'@'localhost'"),
+    #management{action = revoke,
+    data = #permission{on = #value{name = <<"db">>,
+                                   value = #all{table = undefined}},
+                       account = [#value{name = <<"username">>,
+                                         value = <<"jeffrey">>},
+                                  #value{name = <<"host">>,value = <<"localhost">>}],
+                       conditions = insert}}),
+ ok.
+
+set_password()->
+  ?assertEqual(
+  mysql_proto:parse("SET PASSWORD FOR 'jeffrey'@'localhost' = password_option"),
+  #management{action = setpasswd,
+            data = #account{access = [#value{name = <<"password">>,
+                                             value = <<"password_option">>},
+                                      #value{name = <<"username">>,value = <<"jeffrey">>},
+                                      #value{name = <<"host">>,value = <<"localhost">>}]}}),
+  ?assertEqual(
+  mysql_proto:parse("SET PASSWORD FOR 'jeffrey'@'localhost' = 'password_option'"),
+  #management{action = setpasswd,
+            data = #account{access = [#value{name = <<"password">>,
+                                             value = <<"password_option">>},
+                                      #value{name = <<"username">>,value = <<"jeffrey">>},
+                                      #value{name = <<"host">>,value = <<"localhost">>}]}}),
+  ok.

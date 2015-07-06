@@ -1,5 +1,5 @@
 sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query /
-    transaction_query ~;
+    transaction_query / account_management_query ~;
 
 % --------------- USE
 
@@ -22,7 +22,7 @@ desc_query <- space? describe space table space? `
 
 % --------------- SHOW
 
-show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / 
+show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases /
     show_collation_where / show_collation /
     show_variables_where / show_variables_like / show_variables / show_fields ~;
 
@@ -186,17 +186,55 @@ delete_where <- delete_simple space where space conditions space? `
 % ---------------- INSERT
 
 insert_query <- insert_values_keys / insert_values / insert_set ~;
-insert_values_keys <- space? insert space table_general space? '(' space? keys space? ')' space values space? '(' space? params space? ')' space? `
+insert_values_keys <- space? insert space into space table_general space? '(' space? keys space? ')' space values space? '(' space? params space? ')' space? `
     Values = lists:zipwith(fun(X,Y) ->
         #set{key=X, value=Y}
     end, lists:nth(8, Node), lists:nth(16, Node)),
     #insert{table=lists:nth(4, Node), values=Values}
 `;
-insert_values <- space? insert space table_general space values space? '(' space? params space? ')' space? `
+insert_values <- space? insert space into space table_general space values space? '(' space? params space? ')' space? `
     #insert{table=lists:nth(4, Node), values=lists:nth(10, Node)}
 `;
-insert_set <- space? insert space table_general space set space sets space? `
+insert_set <- space? insert space into space table_general space set space sets space? `
     #insert{table=lists:nth(4, Node), values=lists:nth(8, Node)}
+`;
+
+% ---------------- Account Management Statements
+
+account_management_query <- insert_user  / grant_sql / drop_user / rename_sql / revoke_sql / set_password ~;
+%
+drop_user <- space? drop space user_at_host space? `
+    #management{action = drop, data = lists:nth(4,Node) }
+`;
+
+insert_user <- space? create_user space user_at_host space identified password? space param space? `
+    #value{name = undefined,value = Password} = lists:nth(9, Node),
+    #management{action = create, data = #account{access = [#value{name = <<"password">>, value = Password}|lists:nth(4, Node)]}}
+`;
+
+grant_sql <- space? grant space (all / usage) space on space priv_level ('.' priv_level space / space) to space user_at_host space? (with grant_options*)? space?`
+    case lists:nth(14,Node) of
+    [_|_] ->
+      #management{action = grant, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = lists:nth(2,lists:nth(14,Node))}};
+    _ ->
+      #management{action = grant, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = lists:nth(4,Node)}}
+    end
+`;
+
+rename_sql <- space? rename_user space user_at_host space to space user_at_host space? `
+    #management{action = rename, data = [#account{access = lists:nth(4, Node)}|lists:nth(8, Node)]}
+`;
+
+revoke_sql <- space? revoke space permission space on space priv_level ('.' priv_level space / space) from space user_at_host space? `
+    #management{action = revoke, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = lists:nth(4,Node)}}
+`;
+
+set_password <- space? set space password space for space user_at_host space '=' space param space? `
+    case lists:nth(12, Node) of
+      #value{name = undefined,value = Password} -> ok;
+      #key{name = Password, alias = _} -> ok
+    end,
+    #management{action = setpasswd, data = #account{access =[#value{name = <<"password">>, value = Password}|lists:nth(8, Node)]}}
 `;
 
 % ---------------- COMMON TYPES
@@ -269,6 +307,7 @@ params <- head:param tail:( space? ',' space? param )* `
 
 param_general <- param_var / param_function / param_value / param_key / param_sql ~;
 param <- param_var / param_arithmetic / param_function / param_value / param_all / param_all_alias / param_key_alias / param_key / param_sql ~;
+
 param_sql <- subquery (space as space key)? `
     case Node of
         [#subquery{subquery=Query}, [_,_As,_,Key]] -> #subquery{name=Key, subquery=Query};
@@ -303,11 +342,59 @@ param_all <- '*' `#all{}`;
 param_all_alias <- key '\.' '*' `#all{table=lists:nth(1,Node)}`;
 param_function <- key space? '(' space? params? space? ')' (space as space key)? `
     case Node of
-        [Name, _, _, _, Params, _, _, [_, _As, _, Key]] -> 
+        [Name, _, _, _, Params, _, _, [_, _As, _, Key]] ->
             #function{name=Name, params=Params, alias=Key};
-        [Name, _, _, _, Params, _, _, []] -> 
+        [Name, _, _, _, Params, _, _, []] ->
             #function{name=Name, params=Params}
     end
+`;
+
+% --------------- GRANT Syntax priv_type https://dev.mysql.com/doc/refman/5.0/en/grant.html
+priv_level <- priv_part / priv_all / all_for_all / db_name_all / db_name_table / table ~;
+
+priv_part <- '.' '*' `
+  io:fwrite("Nodeall2 ~p  ~n ",[Node]),
+  #all{}
+`;
+
+priv_all <- '*' `
+  #all{}
+`;
+
+all_for_all <- '*' '.' '*' `
+  #all{table = #all{}}
+`;
+
+db_name_all <- database '.' '*' `
+    [DBName,_,_] = Node,
+    #value{name = DBName, value = #all{}}
+`;
+
+db_name_table <- database '.' table `
+    [DBName,_,TableName] = Node,
+    %table could also be routine name
+    #value{name = DBName, value = #table{name = TableName}}
+`;
+
+% --------------- Permissions
+
+permission <- (all / insert / create / delete / drop / execute / grant_options / select / show_databases / update ) ~;
+
+% --------------- GRANT Syntax Account Names http://dev.mysql.com/doc/refman/5.6/en/account-names.html
+
+user_at_host <- param '@' param `
+    [{value,undefined,Username},<<"@">>,{value,undefined,Host}] = Node,
+    [#value{name = <<"username">>, value = Username},
+    #value{name = <<"host">>, value = Host}]
+`;
+
+% --------------- GRANT Options syntax
+
+grant_options <- space? (max_queries_per_hour / max_updates_per_hour / max_connections_per_hour / max_user_connections) space? ('=' space? integer / integer) `
+  case Node of
+  [_,What,_,[_Operator,_,Value]] -> #value{name = What, value = Value};
+  [_,What,_,Value] -> #value{name = What, value = Value}
+  end
 `;
 
 % --------------- From arithmetic (extras in neotoma)
@@ -351,6 +438,8 @@ databases <- #(?i)databases# `databases`;
 collation <- #(?i)collation# `collation`;
 variables <- #(?i)variables# `variables`;
 update <- #(?i)update# `update`;
+execute <- #(?i)execute# `execute`;
+create <- #(?i)create# `create`;
 select <- #(?i)select# `select`;
 set <- #(?i)set# `set`;
 from <- #(?i)from# `from`;
@@ -368,13 +457,29 @@ asc <- #(?i)asc# `asc`;
 desc <- #(?i)desc# `desc`;
 order_by <- #(?i)order +by# `order_by`;
 delete <- #(?i)delete +from# `delete`;
-insert <- #(?i)insert +into# `insert`;
+insert <- #(?i)insert# `insert`;
+into <- #(?i)into# `into`;
 values <- #(?i)values# `values`;
 begin_cmd <- #(?i)begin# `'begin'`;
 commit <- #(?i)commit# `commit`;
 rollback <- #(?i)rollback# `rollback`;
-
+create_user <- #(?i)create +user# `create_user`;
+rename_user <- #(?i)rename +user# `rename_user`;
+identified <- #(?i)identified +by # `identified`;
+password <- #(?i)password# `password`;
+grant <- #(?i)grant# `grant`;
+usage <- #(?i)usage# `usage`;
+on <- #(?i)on# `on`;
+to <- #(?i)to# `to`;
+drop <- #(?i)drop +user # `drop`;
+with <- #(?i)with# `with`;
 database <- key ~;
+revoke <- #(?i)revoke# `revoke`;
+for <- #(?i)for# `for`;
+max_queries_per_hour <- #(?i)max_queries_per_hour# `max_queries_per_hour`;
+max_updates_per_hour <- #(?i)max_updates_per_hour# `max_updates_per_hour`;
+max_connections_per_hour <- #(?i)max_connections_per_hour# `max_connections_per_hour`;
+max_user_connections <- #(?i)max_user_connections# `max_user_connections`;
 
 % complex types
 keys <- head:key tail:( space? ',' space? key )* `
