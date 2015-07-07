@@ -175,7 +175,7 @@ set_value <- key space? '=' space? param_general `
 % ---------------- DELETE
 
 delete_query <- delete_where / delete_simple ~;
-delete_simple <- space? delete space table_general space? `
+delete_simple <- space? delete space from space table_general space? `
     #delete{table=lists:nth(4, Node)}
 `;
 delete_where <- delete_simple space where space conditions space? `
@@ -203,7 +203,7 @@ insert_set <- space? insert space into space table_general space set space sets 
 
 account_management_query <- insert_user  / grant_sql / drop_user / rename_sql / revoke_sql / set_password ~;
 %
-drop_user <- space? drop space user_at_host space? `
+drop_user <- space? drop space user space user_at_host space? `
     #management{action = drop, data = lists:nth(4,Node) }
 `;
 
@@ -212,7 +212,7 @@ insert_user <- space? create_user space user_at_host space identified password? 
     #management{action = create, data = #account{access = [#value{name = <<"password">>, value = Password}|lists:nth(4, Node)]}}
 `;
 
-grant_sql <- space? grant space (all / usage) space on space priv_level ('.' priv_level space / space) to space user_at_host space? (with grant_options*)? space?`
+grant_sql <- space? grant space permission space? on space priv_level ('.' priv_level space / space) to space user_at_host space? (with grant_options*)? space?`
     case lists:nth(14,Node) of
     [_|_] ->
       #management{action = grant, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = lists:nth(2,lists:nth(14,Node))}};
@@ -377,8 +377,12 @@ db_name_table <- database '.' table `
 `;
 
 % --------------- Permissions
-
-permission <- (all / insert / create / delete / drop / execute / grant_options / select / show_databases / update ) ~;
+permission <- head:perms tail:( space? ',' space? perms )* `
+  [proplists:get_value(head, Node)|[ lists:nth(4,I) || I <- proplists:get_value(tail, Node) ]]
+`;
+perms <- all / all_privileges / alter_routine / alter  / create_routine / create_temp_tables / create_user / create_view /
+event / file / grant_option / index / lock_tables / process / references / reload / repl_client / repl_slave /
+show_dbs / show_view / shutdown / super / trigger / update / usage / insert / create / delete / drop / execute / select / update ~;
 
 % --------------- GRANT Syntax Account Names http://dev.mysql.com/doc/refman/5.6/en/account-names.html
 
@@ -452,11 +456,12 @@ in <- #(?i)in# `in`;
 any <- #(?i)any# `in`;
 exist <- #(?i)exist# `exist`;
 all <- #(?i)all# `all`;
+all_privileges <- #(?i)all +privileges# `all_privileges`;
 group_by <- #(?i)group +by# `group_by`;
 asc <- #(?i)asc# `asc`;
 desc <- #(?i)desc# `desc`;
 order_by <- #(?i)order +by# `order_by`;
-delete <- #(?i)delete +from# `delete`;
+delete <- #(?i)delete# `delete`;
 insert <- #(?i)insert# `insert`;
 into <- #(?i)into# `into`;
 values <- #(?i)values# `values`;
@@ -464,6 +469,7 @@ begin_cmd <- #(?i)begin# `'begin'`;
 commit <- #(?i)commit# `commit`;
 rollback <- #(?i)rollback# `rollback`;
 create_user <- #(?i)create +user# `create_user`;
+create_view <- #(?i)create +view# `create_view`;
 rename_user <- #(?i)rename +user# `rename_user`;
 identified <- #(?i)identified +by # `identified`;
 password <- #(?i)password# `password`;
@@ -471,7 +477,8 @@ grant <- #(?i)grant# `grant`;
 usage <- #(?i)usage# `usage`;
 on <- #(?i)on# `on`;
 to <- #(?i)to# `to`;
-drop <- #(?i)drop +user # `drop`;
+user <- #(?i)user# `user`;
+drop <- #(?i)drop# `drop`;
 with <- #(?i)with# `with`;
 database <- key ~;
 revoke <- #(?i)revoke# `revoke`;
@@ -480,6 +487,26 @@ max_queries_per_hour <- #(?i)max_queries_per_hour# `max_queries_per_hour`;
 max_updates_per_hour <- #(?i)max_updates_per_hour# `max_updates_per_hour`;
 max_connections_per_hour <- #(?i)max_connections_per_hour# `max_connections_per_hour`;
 max_user_connections <- #(?i)max_user_connections# `max_user_connections`;
+alter <- #(?i)alter# `alter`;
+alter_routine <- #(?i)alter +routine# `alter_routine`;
+create_routine <- #(?i)create +routine# `create_routine`;
+create_temp_tables <- #(?i)create +temporary +tables# `create_temp_tables`;
+event <- #(?i)event# `event`;
+file <- #(?i)file# `file`;
+grant_option <- #(?i)grant +option# `grant_option`;
+index <- #(?i)index# `index`;
+lock_tables <- #(?i)lock +tables# `lock_tables`;
+references <- #(?i)references# `references`;
+reload <- #(?i)reload# `reload`;
+repl_client <- #(?i)replication +client# `repl_client`;
+repl_slave <- #(?i)replication +slave# `repl_slave`;
+show_dbs <- #(?i)show +databases# `show_dbs`;
+show_view <- #(?i)show +view# `show_view`;
+shutdown <- #(?i)shutdown# `shutdown`;
+super <- #(?i)super# `super`;
+trigger <- #(?i)trigger# `trigger`;
+process <- #(?i)process# `process`;
+
 
 % complex types
 keys <- head:key tail:( space? ',' space? key )* `
