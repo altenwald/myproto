@@ -215,7 +215,7 @@ insert_user <- space? create_user space user_at_host space identified password? 
 grant_sql <- space? grant space permission space? on space priv_level ('.' priv_level space / space) to space user_at_host space? (with grant_options*)? space?`
     case lists:nth(14,Node) of
     [_|_] ->
-      #management{action = grant, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = lists:nth(2,lists:nth(14,Node))}};
+      #management{action = grant, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = [lists:nth(4,Node)|lists:nth(2,lists:nth(14,Node))]}};
     _ ->
       #management{action = grant, data = #permission{on = lists:nth(8,Node), account = lists:nth(12,Node), conditions = lists:nth(4,Node)}}
     end

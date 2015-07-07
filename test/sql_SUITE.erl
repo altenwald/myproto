@@ -719,11 +719,8 @@ insert_user()->
       #management{action = create,
             data = #account{access = [#value{name = <<"password">>,
                     value = <<"mypass">>},
-                    #value{name = <<"username">>,
-                                                value = <<"jeffrey">>},
-                                         #value{name = <<"host">>,
-                                                value = <<"localhost">>}
-                                         ]}}
+                    #value{name = <<"username">>,value = <<"jeffrey">>},
+                    #value{name = <<"host">>, value = <<"localhost">>}]}}
   ),
   ok.
 
@@ -755,6 +752,15 @@ grant_sql()->
                                           #value{name = <<"host">>,value = <<"localhost">>}],
                                conditions = [#value{name = max_queries_per_hour,value = 90},
                                              #value{name = max_updates_per_hour,value = 90}]}}),
+    ?assertEqual(mysql_proto:parse("GRANT USAGE,select ON *.* TO 'jeffrey'@'localhost' WITH MAX_QUERIES_PER_HOUR 90 MAX_UPDATES_PER_HOUR 90"),
+      #management{action = grant,
+              data = #permission{on = #all{table = undefined},
+                                 account = [#value{name = <<"username">>,
+                                                   value = <<"jeffrey">>},
+                                            #value{name = <<"host">>,value = <<"localhost">>}],
+                                 conditions = [[usage,select],
+                                 #value{name = max_queries_per_hour,value = 90},
+                                               #value{name = max_updates_per_hour,value = 90}]}})
      ok.
 
 drop_user()->
