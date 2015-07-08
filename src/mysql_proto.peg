@@ -204,7 +204,7 @@ insert_set <- space? insert space into space table_general space set space sets 
 account_management_query <- insert_user  / grant_sql / drop_user / rename_sql / revoke_sql / set_password ~;
 %
 drop_user <- space? drop space user space user_at_host space? `
-    #management{action = drop, data = lists:nth(4,Node) }
+    #management{action = drop, data = #account{access = lists:nth(6, Node)} }
 `;
 
 insert_user <- space? create_user space user_at_host space identified password? space param space? `

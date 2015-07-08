@@ -708,11 +708,8 @@ insert_user()->
   ?assertEqual(
       mysql_proto:parse("CREATE USER 'jeffrey'@'localhost' IDENTIFIED BY 'mypass'"),
       #management{action = create,
-            data = #account{access = [#value{name = <<"password">>,
-                    value = <<"mypass">>},#value{name = <<"username">>,
-                                                value = <<"jeffrey">>},
-                                         #value{name = <<"host">>,
-                                                value = <<"localhost">>}]}}
+            data = #account{access = [#value{name = <<"password">>,value = <<"mypass">>},#value{name = <<"username">>,value = <<"jeffrey">>},
+                                      #value{name = <<"host">>,value = <<"localhost">>}]}}
   ),
   ?assertEqual(
       mysql_proto:parse("CREATE USER 'jeffrey'@'localhost' IDENTIFIED BY password 'mypass'"),
@@ -767,8 +764,8 @@ drop_user()->
   ?assertEqual(
     mysql_proto:parse("DROP USER 'jeffrey'@'localhost'"),
     #management{action = drop,
-            data = [#value{name = <<"username">>,value = <<"jeffrey">>},
-                    #value{name = <<"host">>,value = <<"localhost">>}]}),
+            data = #account{access = [#value{name = <<"username">>,value = <<"jeffrey">>},
+                                      #value{name = <<"host">>,value = <<"localhost">>}]}}),
      ok.
 
 rename_sql()->
