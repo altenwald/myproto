@@ -131,6 +131,7 @@
 	capabilities :: integer(),
 	plugin :: binary(),
 	charset :: binary(),
+	database :: binary(),
 	server_hash :: binary()
 }).
 
@@ -139,6 +140,7 @@
 -record(request, {
 	command :: integer(),
 	info :: binary() | sql() | user(),
+	text :: binary(),
 	continue = false :: boolean(),
 	id = 0 :: integer()
 }).

@@ -115,7 +115,7 @@ encode_column(#column{
         schema = Schema, table = Table, name = Name,
         charset = Charset, length = L, type = Type,
         flags = Flags, decimals = Decimals, org_name = ON
-    }=Column, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
+    }=_Column, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
     is_integer(Charset), is_integer(Type), is_integer(Flags), 
     is_integer(Decimals) ->
     SchemaLen = my_datatypes:number_to_var_integer(byte_size(Schema)),
@@ -131,7 +131,7 @@ encode_column(#column{
         {?TYPE_LONGLONG,undefined} -> 16#15;
         {_,undefined} -> 0
     end,
-    lager:debug("Column to encode: ~p~n", [Column]),
+    % lager:debug("Column to encode: ~p~n", [Column]),
     Payload = <<
         3:8, "def", 
         SchemaLen/binary, Schema/binary,
@@ -149,16 +149,19 @@ encode_column(#column{
 
 encode_rows(Rows, Cols, Id) ->
     lists:foldl(fun(Values, {NewId, Data}) ->
-        Payload = lists:foldl(fun({#column{type = Type}, Cell}, Binary) ->
+        Payload = lists:foldl(fun({#column{type = Type, name = Name}, Cell}, Binary) ->
             Cell1 = case Type of
                 _ when Cell == undefined -> undefined;
-                T when T == ?TYPE_TINY;
-                       T == ?TYPE_SHORT;
-                       T == ?TYPE_LONG;
-                       T == ?TYPE_LONGLONG;
-                       T == ?TYPE_INT24;
-                       T == ?TYPE_YEAR -> list_to_binary(integer_to_list(Cell));
-                _ when is_binary(Cell) -> Cell
+                _ when Cell == true -> <<"1">>;
+                _ when Cell == false -> <<"0">>;
+                T when (T == ?TYPE_TINY orelse
+                       T == ?TYPE_SHORT orelse
+                       T == ?TYPE_LONG orelse
+                       T == ?TYPE_LONGLONG orelse
+                       T == ?TYPE_INT24 orelse
+                       T == ?TYPE_YEAR) andalso is_integer(Cell) -> integer_to_binary(Cell);
+                _ when is_binary(Cell) -> Cell;
+                _ -> error({cannot_encode,Name,Type,Cell})
             end,
             CellEnc = case Cell of
                 undefined -> ?DATA_NULL;
@@ -200,11 +203,14 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
                     unpack_zero(Info1)
             end
     end,
-    {_DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
+
+    HasPluginAuth = proplists:get_value(plugin_auth, Caps),
+    {DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
         % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
         % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
-        % true ->
-        %     unpack_zero(Info2);
+        % so we write here a dirty hack for pymysql
+        true when HasPluginAuth == undefined andalso size(Info2) > 0 ->
+            unpack_zero(Info2);
         _ ->
             {undefined, Info2}
     end,
@@ -219,6 +225,7 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
         password=Password, 
         plugin=Plugin,
         capabilities=Caps,
+        database=DB,
         charset=Charset
     },
     #request{command=?COM_AUTH, info=UserData}.

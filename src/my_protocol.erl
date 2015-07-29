@@ -67,17 +67,15 @@ send_or_reply(ok, #my{} = My) ->
   ok(My);
 
 send_or_reply(#response{id = 0} = Response, #my{id = Id} = My) ->
-  send_or_reply(my_packet:encode(Response#response{id = Id}), My#my{id = Id+1});
+  send_or_reply(Response#response{id = Id}, My#my{id = Id+1});
 
-send_or_reply(#response{} = Response, #my{} = My) ->
-  send_or_reply(my_packet:encode(Response), My);
-
-send_or_reply(Bin, #my{socket = undefined} = My) when is_binary(Bin) ->
-  {ok, Bin, My};
-
-send_or_reply(Bin, #my{socket = Socket} = My) when is_binary(Bin) ->
-  % lager:info("outgoing ~p", [Bin]),
-  ok = gen_tcp:send(Socket, Bin),
+send_or_reply(#response{} = Response, #my{socket = Socket} = My) ->
+  % ST = try (throw(a))
+  % catch
+  %   throw:_ -> erlang:get_stacktrace()
+  % end,
+  % lager:info("~p -> ~p -- ~p\n", [Response, my_packet:encode(Response), ST]),
+  ok = gen_tcp:send(Socket, my_packet:encode(Response)),
   {ok, My}.
 
 
@@ -124,7 +122,7 @@ decode(Bin, #my{} = My) ->
 -spec buffer_bytes(binary(), my()) -> my().
 
 buffer_bytes(Bin, #my{buffer = Buffer} = My) when size(Buffer) > 0 andalso size(Bin) > 0 ->
-  My#my{buffer = <<Bin/binary, Buffer/binary>>};
+  My#my{buffer = <<Buffer/binary, Bin/binary>>};
 
 buffer_bytes(Bin, #my{} = My) ->
   My#my{buffer = Bin}.
@@ -176,12 +174,17 @@ decode(#my{buffer = Bin, state = normal, parse_query = ParseQuery, query_buffer 
 
       Packet1 = case Command of
         'query' when ParseQuery ->
-          SQL = case mysql_proto:parse(Query) of
+          S = size(Query) - 1,
+          Query2 = case Query of
+            <<Query1:S/binary,0>> -> Query1;
+            _ -> Query
+          end,
+          SQL = case mysql_proto:parse(Query2) of
             {fail,Expected} -> {parse_error, {fail,Expected}, Info};
             % {_, Extra,Where} -> {parse_error, {Extra, Where}, Info};
             Parsed -> Parsed
           end,
-          Packet#request{command = Command, info = SQL};
+          Packet#request{command = Command, info = SQL, text = Query2};
         _ ->
           Packet#request{command = Command, info = Query}
       end,

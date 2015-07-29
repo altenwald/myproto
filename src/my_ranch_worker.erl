@@ -30,20 +30,25 @@ init_server(ListenerPid, Socket, Handler, _Args) ->
   proc_lib:init_ack({ok, self()}),
   ranch:accept_ack(ListenerPid),
 
-  My0 = my_protocol:init([{socket, Socket}]),
+  My0 = my_protocol:init([{socket, Socket},{parse_query,true}]),
   {ok, My1} = my_protocol:hello(42, My0),
-  {ok, #request{info = #user{name=User, password=Password, server_hash = Hash}}, My2} = my_protocol:next_packet(My1),
-  case Handler:check_pass(User, Hash, Password) of
-    {ok, Password, HandlerState} ->
-      {ok, My3} = my_protocol:ok(My2),
-      inet:setopts(Socket, [{active,once}]),
-      State = #server{handler = Handler, state = HandlerState, socket = Socket, my = My3},
-      gen_server:enter_loop(?MODULE, [], State);
-    {error, Reason} ->
-      my_protocol:error(Reason, My2);
-    {error, Code, Reason} ->
-      my_protocol:error(Code, Reason, My2)
+  case my_protocol:next_packet(My1) of
+    {ok, #request{info = #user{password = Password} = User}, My2} ->
+      case Handler:check_pass(User) of
+        {ok, Password, HandlerState} ->
+          {ok, My3} = my_protocol:ok(My2),
+          inet:setopts(Socket, [{active,once}]),
+          State = #server{handler = Handler, state = HandlerState, socket = Socket, my = My3},
+          gen_server:enter_loop(?MODULE, [], State);
+        {error, Reason} ->
+          my_protocol:error(Reason, My2);
+        {error, Code, Reason} ->
+          my_protocol:error(Code, Reason, My2)
+      end;
+    {error, StartError} ->
+      {stop, StartError}
   end.
+
 
 handle_call(Call, _From, #server{} = Server) ->
   {stop, {unknown_call,Call}, Server}.
@@ -75,7 +80,9 @@ terminate(_,_) -> ok.
 handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Server) ->
   case my_protocol:decode(My) of
     {ok, Query, My1} ->
-      case Handler:execute(Query, HandlerState) of
+      % #request{text = Text, command = Command} = Query,
+      % lager:info("~s ~s", [Command, Text]),
+      try Handler:execute(Query, HandlerState) of
         {noreply, HandlerState1} ->
           handle_packets(Server#server{my = My1, state = HandlerState1});
         {reply, default, HandlerState1} when Query#request.command == quit ->
@@ -83,14 +90,24 @@ handle_packets(#server{my = My, handler = Handler, state = HandlerState} = Serve
           {stop, normal, Server#server{my = My1, state = HandlerState1}};
         {reply, default, HandlerState1} ->
           {reply, Reply, HandlerState2} = default_reply(Query, Handler, HandlerState1),
+          % lager:info("output ~p", [Reply]),
           {ok, My2} = my_protocol:send_or_reply(Reply, My1),
           handle_packets(Server#server{my = My2, state = HandlerState2});          
         {reply, Response, HandlerState1} ->
+          % lager:info("output ~p", [Response]),
           {ok, My2} = my_protocol:send_or_reply(Response, My1),
           handle_packets(Server#server{my = My2, state = HandlerState1});
         {stop, Reason, HandlerState1} ->
           Handler:terminate(Reason, HandlerState1),
           {stop, Reason, Server#server{my = My1, state = HandlerState1}}
+      catch
+        C:E ->
+          ST = erlang:get_stacktrace(),
+          lager:info("~p:~p in MySQL server handler\n"
+            "  * Last input: ~p\n"
+            "  * Stacktrace: ~p\n"
+            "  * State: ~p", [C, E, Query, ST, HandlerState]),
+          {stop, E, Server}
       end;
     {more, My1} ->
       {noreply, Server#server{my = My1}}
@@ -114,6 +131,26 @@ default_reply(#request{info = #select{params=[#variable{name = <<"version_commen
   },
   {reply, #response{status=?STATUS_OK, info=Info}, State1};
 
+default_reply(#request{info = #select{params=[#variable{name = <<"global.max_allowed_packet">>}]}}, _Handler, State) ->
+  Info = {
+    [#column{name = <<"@@global.max_allowed_packet">>, type=?TYPE_LONG, length=20}],
+    [[4194304]]
+  },
+  {reply, #response{status=?STATUS_OK, info=Info}, State};
+
+default_reply(#request{info = #select{params=[#variable{name = <<"tx_isolation">>, scope = local}]}}, _Handler, State) ->
+  Info = {
+    [#column{name = <<"@@tx_isolation">>, type=?TYPE_VARCHAR}],
+    [[<<"REPEATABLE-READ">>]]
+  },
+  {reply, #response{status=?STATUS_OK, info=Info}, State};
+
+
+default_reply(#request{info = {use,Database}}, Handler, State) ->
+  {noreply, State1} = Handler:metadata({connect_db,Database}, State),
+  {reply, #response {
+    status=?STATUS_OK, info = <<"Changed to ", Database/binary>>, status_flags = 2
+  }, State1};
 
 default_reply(#request{command = init_db, info = Database}, Handler, State) ->
   {noreply, State1} = Handler:metadata({connect_db,Database}, State),
@@ -135,6 +172,59 @@ default_reply(#request{info = #show{type = databases}}, Handler, State) ->
   {reply, Response, State1};
 
 
+default_reply(#request{info = #show{type = collation}}, _Handler, State) ->
+  ResponseFields = {
+    [#column{name = <<"Collation">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Charset">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Id">>, type=?TYPE_LONG},
+    #column{name = <<"Default">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Compiled">>, type=?TYPE_VAR_STRING, length=20},
+    #column{name = <<"Sortlen">>, type=?TYPE_LONG}
+    ],
+    [ 
+      [<<"utf8_bin">>,<<"utf8">>,83,<<"">>,<<"Yes">>,1]
+    ]
+  },
+  {reply, #response{status=?STATUS_OK, info = ResponseFields}, State};
+
+
+
+default_reply(#request{info = #show{type = variables}}, Handler, State) ->
+
+  {Version, State1} = case Handler:metadata(version, State) of
+    {reply, Vsn, State1_} -> {iolist_to_binary(Vsn), State1_};
+    {noreply, State1_} -> {<<"5.6.0">>, State1_}
+  end,
+
+  {Mega, Sec, Micro} = os:timestamp(),
+  Timestamp = iolist_to_binary(io_lib:format("~B.~6..0B", [Mega*1000000 + Sec, Micro])),
+
+  Variables = [
+    {<<"sql_mode">>, <<"NO_ENGINE_SUBSTITUTION">>},
+    {<<"auto_increment_increment">>, <<"1">>},
+    {<<"character_set_client">>, <<"utf8">>},
+    {<<"character_set_connection">>, <<"utf8">>},
+    {<<"character_set_database">>, <<"utf8">>},
+    {<<"character_set_results">>, <<"utf8">>},
+    {<<"character_set_server">>, <<"utf8">>},
+    {<<"character_set_system">>, <<"utf8">>},
+    {<<"date_format">>, <<"%Y-%m-%d">>},
+    {<<"datetime_format">>, <<"%Y-%m-%d %H:%i:%s">>},
+    {<<"default_storage_engine">>, <<"Flussonic">>},
+    {<<"timestamp">>, Timestamp},
+    {<<"version">>, Version}
+  ],
+
+  ResponseFields = {
+
+    [#column{name = <<"Variable_name">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>},
+    #column{name = <<"Value">>, type=?TYPE_VAR_STRING, length=20, schema = <<"information_schema">>, table = <<"SCHEMATA">>, org_table = <<"SCHEMATA">>, org_name = <<"SCHEMA_NAME">>}],
+
+    [tuple_to_list(V) || V <- Variables]
+
+  },
+  {reply, #response{status=?STATUS_OK, info = ResponseFields}, State1};
+
 
 default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}]}}, _Handler, State) ->
   ResponseFields = {
@@ -143,7 +233,6 @@ default_reply(#request{info = #select{params = [#function{name = <<"DATABASE">>}
   },
   Response = #response{status=?STATUS_OK, info = ResponseFields},
   {reply, Response, State};
-
 
 
 default_reply(#request{info = #show{type = tables}}, Handler, State) ->
@@ -159,7 +248,8 @@ default_reply(#request{info = #show{type = tables}}, Handler, State) ->
   Response = #response{status=?STATUS_OK, info = ResponseFields},
   {reply, Response, State1};
 
-
+default_reply(#request{info = #describe{table = #table{name = Table}}}, Handler, State) ->
+  default_reply(#request{info = #show{type = fields, from = Table, full = false }}, Handler, State);
 
 default_reply(#request{info = #show{type = fields, from = Table, full = Full}}, Handler, State) ->
   {reply, {_DB, Table, Fields}, State1} = Handler:metadata({fields, Table}, State),
@@ -180,7 +270,7 @@ default_reply(#request{info = #show{type = fields, from = Table, full = Full}}, 
   end,
   Rows = lists:map(fun({Name,Type}) ->
     [atom_to_binary(Name,latin1),
-    case Type of string -> <<"varchar(255)">>; _ -> <<"bigint(20)">> end,
+    case Type of string -> <<"varchar(255)">>; boolean -> <<"tinyint(1)">>; _ -> <<"bigint(20)">> end,
     <<"YES">>,
     <<>>,
     undefined,
@@ -199,7 +289,7 @@ default_reply(#request{info = #show{type = create_table, from = Table}}, Handler
   CreateTable = iolist_to_binary([
     "CREATE TABLE `", Table, "` (\n",
       tl(lists:flatmap(fun({Name,Type}) ->
-        [",", "`", atom_to_binary(Name,latin1), "` ", case Type of string -> "varchar(255)"; integer -> "bigint(20)" end, "\n"]
+        [",", "`", atom_to_binary(Name,latin1), "` ", case Type of string -> "varchar(255)"; integer -> "bigint(20)"; boolean -> "tinyint(1)" end, "\n"]
       end, Fields)),
     ")"
   ]),
@@ -217,12 +307,11 @@ default_reply(#request{command = field_list, info = Table}, Handler, State) ->
   {reply, {DB, Table, Fields}, State1} = Handler:metadata({fields,Table}, State),
   
   Reply = [#column{schema = DB, table = Table, org_table = Table, name = to_b(Field), org_name = to_b(Field), length = 20,
-    type = case Type of string -> ?TYPE_VAR_STRING; integer -> ?TYPE_LONGLONG end} || {Field,Type} <- Fields],
+    type = case Type of string -> ?TYPE_VAR_STRING; integer -> ?TYPE_LONGLONG; boolean -> ?TYPE_TINY end} || {Field,Type} <- Fields],
   {reply, #response{status=?STATUS_OK, info = {Reply}}, State1};    
 
 default_reply(#request{command = ping}, _Handler, State) ->
   {reply, #response{status = ?STATUS_OK, id = 1}, State};
-
 
 default_reply(_, _Handler, State) ->
   {reply, #response{status=?STATUS_OK}, State}.

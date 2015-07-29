@@ -3,9 +3,7 @@
 -include("../include/myproto.hrl").
 
 -callback check_pass(
-	user_string(), 
-	hash(),
-	password()
+	#user{}
 ) -> 
 	{ok, password(), State::term()} | 
 	{error, Reason::binary()} |

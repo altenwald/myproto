@@ -1,6 +1,11 @@
-sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query ~;
+sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query /
+    transaction_query ~;
 
 % --------------- USE
+
+transaction_query <- space? cmd:(begin_cmd / commit / rollback) space? `
+    proplists:get_value(cmd,Node)
+`;
 
 use_query <- space? use space database space? `
     [_,_Use,_,Database,_] = Node,
@@ -12,12 +17,14 @@ use_query <- space? use space database space? `
 
 desc_query <- space? describe space table space? `
     [_,_Desc,_,Table,_] = Node,
-    {describe, Table}
+    #describe{table = Table}
 `;
 
 % --------------- SHOW
 
-show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / show_fields ~;
+show_query <- show_status / show_create_table / show_tables_from / show_tables_like / show_tables / show_databases / 
+    show_collation_where / show_collation /
+    show_variables_where / show_variables_like / show_variables / show_fields ~;
 
 show_status <- space? show space table_keyword space status space like space like:string space? `
     #show{type=status, from=proplists:get_value(like, Node)}
@@ -50,6 +57,27 @@ show_databases <- space? show space databases space? `
     #show{type=databases}
 `;
 
+show_collation_where <- space? show space collation space where space conditions:conditions space? `
+    #show{type=collation, conditions = proplists:get_value(conditions,Node)}
+`;
+
+show_collation <- space? show space collation space? `
+    #show{type=collation}
+`;
+
+
+show_variables_where <- space? show space variables space where space conditions:conditions space? `
+    #show{type=variables, conditions = proplists:get_value(conditions,Node)}
+`;
+
+show_variables_like <- space? show space variables space like space pattern:string space? `
+    #show{type=variables, conditions = {like, proplists:get_value(pattern,Node)}}
+`;
+
+show_variables <- space? show space variables space? `
+    #show{type=variables}
+`;
+
 
 show_fields <- space? show full:(space full)? space (fields_keyword) space from space key:key space? `
     Full = lists:member(full,proplists:get_value(full,Node)),
@@ -65,7 +93,7 @@ set_query <- set space head:system_set tail:(space? ',' space? s:system_set )* s
     #system_set{'query' = [Head|Tail]}
 `;
 
-system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string `
+system_set <- var:set_var space? '=' space? val:value / names:'NAMES' space val:string / names:'NAMES' space val:charset `
     case proplists:get_value(names,Node) of
         undefined ->
             {proplists:get_value(var,Node), proplists:get_value(val,Node)};
@@ -112,8 +140,9 @@ select_limit <- ( select_order / select_group / select_where / select_from / sel
 order_datas <- head:order_data tail:( space? ',' space? order_data )* `
     [proplists:get_value(head, Node)|[ lists:nth(4,I) || I <- proplists:get_value(tail, Node) ]]
 `;
-order_data <- (key / integer) (space sort)? `
+order_data <- (key '.' key / key / integer ) (space sort)? `
     case Node of
+        [[_,<<".">>,Key], [_, Sort]] -> #order{key=Key, sort=Sort};
         [Key, [_, Sort]] -> #order{key=Key, sort=Sort};
         [Key, []] -> #order{key=Key, sort=asc}
     end
@@ -232,7 +261,7 @@ set_datas <- head:set_data tail:( space? ',' space? set_data )* `
 set_data <- value ~;
 
 nexo <- nexo_and / nexo_or ~;
-set_comp <- in / exist / all / any ~;
+set_comp <- not_in / in / exist / all / any ~;
 
 params <- head:param tail:( space? ',' space? param )* `
     [proplists:get_value(head, Node)|[ lists:nth(4,I) || I <- proplists:get_value(tail, Node) ]]
@@ -309,7 +338,7 @@ primary <- par:("(" space? add:additive space? ")") / dec:param_wa `
 status <- #(?i)status# `status`;
 like <- #(?i)like# `like`;
 use <- #(?i)use# `use`;
-describe <- #(?i)desc# / #(?i)describe# `describe`;
+describe <- #(?i)describe# / #(?i)desc# `describe`;
 limit <- #(?i)limit# `limit`;
 offset <- #(?i)offset# `offset`;
 full <- #(?i)full# `full`;
@@ -319,6 +348,8 @@ fields_keyword <- #(?i)fields# `fields`;
 tables_keyword <- #(?i)tables# `tables`;
 table_keyword <- #(?i)table# `table`;
 databases <- #(?i)databases# `databases`;
+collation <- #(?i)collation# `collation`;
+variables <- #(?i)variables# `variables`;
 update <- #(?i)update# `update`;
 select <- #(?i)select# `select`;
 set <- #(?i)set# `set`;
@@ -327,6 +358,7 @@ where <- #(?i)where# `where`;
 as <- #(?i)as# `as`;
 nexo_or <- #(?i)or# `nexo_or`;
 nexo_and <- #(?i)and# `nexo_and`;
+not_in <- #(?i)not +in# `not_in`;
 in <- #(?i)in# `in`;
 any <- #(?i)any# `in`;
 exist <- #(?i)exist# `exist`;
@@ -338,6 +370,9 @@ order_by <- #(?i)order +by# `order_by`;
 delete <- #(?i)delete +from# `delete`;
 insert <- #(?i)insert +into# `insert`;
 values <- #(?i)values# `values`;
+begin_cmd <- #(?i)begin# `'begin'`;
+commit <- #(?i)commit# `commit`;
+rollback <- #(?i)rollback# `rollback`;
 
 database <- key ~;
 
@@ -353,17 +388,20 @@ key <- '`' chars:(!'`' ("\\\\" / '\\`' / .))+ '`' / [a-zA-Z] [A-zA-Z0-9_]* `
 `;
 value <- string / null / number ~;
 
-var <- '@' '@'? key `
-    [_L,G,Key] = Node,
-    Scope = case G of
-        [] -> global;
-        _ -> local
+var <- '@' '@'? key ('.' key)? `
+    [L,G,Key1,Key2] = Node,
+    Key = iolist_to_binary([Key1,Key2]),
+    Scope = if
+        L == [] andalso G == [] -> session;
+        G == [] -> global;
+        true -> local
     end,
     #variable{name=Key, scope=Scope}
 `;
 
-set_var <- '@'? '@'? key `
-    [L,G,Key] = Node,
+set_var <- '@'? '@'? key ('.' key)? `
+    [L,G,Key1,Key2] = Node,
+    Key = iolist_to_binary([Key1,Key2]),
     Scope = if
         L == [] andalso G == [] -> session;
         G == [] -> global;
@@ -374,6 +412,7 @@ set_var <- '@'? '@'? key `
 
 
 % Basic types
+charset <- "utf8" / "latin1" ~;
 string <- "'" ((!"'" ("\\\\" / "\\'" / .)) ("''")?)* "'" `binary:replace(iolist_to_binary(lists:nth(2, Node)), <<"''">>, <<"'">>)`;
 number <- float / integer ~;
 integer <- [0-9]+ `

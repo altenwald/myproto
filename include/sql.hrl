@@ -14,7 +14,7 @@
 -record(system_set, {'query'}).
 
 % SHOW
--record(show, {type, full, from}).
+-record(show, {type, full, from, conditions}).
 
 -type show() :: #show{}.
 
@@ -37,6 +37,9 @@
 
 % INSERT
 -record(insert, {table, values}).
+
+% DESCRIBE
+-record(describe, {table}).
 
 -type insert() :: #insert{}.
 
