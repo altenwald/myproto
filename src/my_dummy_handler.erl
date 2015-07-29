@@ -3,13 +3,26 @@
 
 -include("../include/myproto.hrl").
 
--export([check_pass/3, execute/2, terminate/2]).
+-export([check_pass/1, execute/2, metadata/2, terminate/2]).
 
-check_pass(User, Hash, Password) ->
+check_pass(#user{name = User, server_hash = Hash, password = Password}) ->
     case my_request:check_clean_pass(User, Hash) of
         Password -> {ok, Password, []};
         _ -> {error, <<"Password incorrect!">>}
     end.
+
+
+metadata(version, State) ->
+  {reply, <<"dummy handler 1.0">>, State};
+
+metadata({connect_db, _Database}, State) ->
+  {noreply, State};
+
+metadata(databases, State) ->
+  {reply, [<<"myfakedatabase">>], State};
+
+metadata(_, State) ->
+  {noreply, State}.
 
 execute(#request{info = #select{params=[#variable{name = <<"version_comment">>}]}}, State) ->
     Info = {

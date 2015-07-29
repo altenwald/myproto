@@ -92,7 +92,7 @@ Now, you can create the `apps/mydummy/src/mydummy.erl` module:
     db
 }).
 
-check_pass(User, Hash, Password) ->
+check_pass(#user{name = User, server_hash = Hash, password = Password}) ->
     case my_request:check_clean_pass(User, Hash) of
         HashedPassword -> {ok, HashedPassword, #my{}};
         _ -> {error, <<"Password incorrect!">>}
