@@ -44,3 +44,12 @@
 -type insert() :: #insert{}.
 
 -type sql() :: show() | select() | update() | delete() | insert().
+
+% Database Administration Statements
+-record(management, {action :: action(), data :: account() | permission() }).
+-record(account, {access}).
+-record(permission, {on, account, conditions}).
+
+-type action() :: create | drop | grant | rename | revoke | setpasswd.
+-type account() :: #account{}.
+-type permission() :: #permission{}.
