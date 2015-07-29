@@ -5,6 +5,11 @@ Overview
 
 MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
 
+Requirements
+------------
+
+The system for tests use maps so, you have to use Erlang OTP 17+.
+
 Usage
 -----
 
@@ -26,6 +31,7 @@ If you want configure the port, the handler and the server sign:
     {handler, my_dummy_handler},
     {parse_query, true},
     {server_sign, <<"5.5-myproto">>},
+    {default_storage_engine, <<"myproto">>},
     {port, 3306}
   ]}.
 ```
@@ -64,6 +70,7 @@ Modify the file `rel/files/sys.config` as:
     {handler, mydummy},
     {parse_query, true},
     {server_sign, <<"5.5-myproto">>},
+    {default_storage_engine, <<"myproto">>},
     {port, 3306}
  ]},
  
@@ -86,7 +93,7 @@ Now, you can create the `apps/mydummy/src/mydummy.erl` module:
 
 -include_lib("myproto/include/myproto.hrl").
 
--export([check_pass/3, execute/2, terminate/2]).
+-export([check_pass/3, metadata/2, execute/2, terminate/2]).
 
 -record(my, {
     db
@@ -97,6 +104,7 @@ check_pass(#user{name = User, server_hash = Hash, password = Password}) ->
         HashedPassword -> {ok, HashedPassword, #my{}};
         _ -> {error, <<"Password incorrect!">>}
     end.
+
 
 metadata(version, State) ->
     {reply, <<"my cool server 1.0">>, State};
@@ -117,8 +125,6 @@ metadata(_, #my{} = State) ->
     {noreply, State}.
 
 
-
-
 execute(#request{info = 
             #select{params=[#variable{name = <<"version_comment">>}]
         }}, State) ->
@@ -127,9 +133,11 @@ execute(#request{info =
         [[<<"myproto 0.1">>]]
     },
     {reply, #response{status=?STATUS_OK, info=Info}, State};
+
 execute(#request{command = ?COM_QUIT}, State) ->
     lager:info("Exiting~n", []),
     {stop, normal, State};
+
 execute(#request{info = #select{}} = Request, State) ->
     lager:info("Request: ~p~n", [Request]),
     Info = {
@@ -148,18 +156,14 @@ execute(#request{} = Request, State) ->
     lager:info("Unknown request: ~p", [Request]),
     {reply, default, State}. % Return default reply if you don't know answer on this request
 
+
 terminate(_Reason, _State) ->
     ok.
 ```
 
+Please, mention that dummy module must implement metadata callback, because usually mysql clients ask a lot of information on start about databases, tables and fields in them.
 
-Please, mention that dummy module must implement metadata callback, because usually mysql clients
-ask a lot of information on start about databases, tables and fields in them.
-
-For example, mysql has three different protocols for querying table structure. myproto hides this stuff
-from you in a very simple and convenient way.
-
-
+For example, mysql has three different protocols for querying table structure. myproto hides this stuff from you in a very simple and convenient way.
 
 Add this to `rel/reltool.config`:
 

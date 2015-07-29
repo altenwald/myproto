@@ -1,15 +1,16 @@
 {application, myproto, [
-	{description, "MySQL Protocol Server"},
-	{vsn, git},
-	{registered, []},
-	{applications, [
-		kernel,
-		stdlib
-	]},
-	{mod, {myproto_app, []}},
-	{env, [
-		{port, 3306},
-		{server_sign, <<"5.5-myproto">>},
-		{handler, my_dummy_handler}
-	]}
+    {description, "MySQL Protocol Server"},
+    {vsn, git},
+    {registered, []},
+    {applications, [
+        kernel,
+        stdlib
+    ]},
+    {mod, {myproto, []}},
+    {env, [
+        {port, 3306},
+        {server_sign, <<"5.5-myproto">>},
+        {default_storage_engine, <<"myproto">>},
+        {handler, my_dummy_handler}
+    ]}
 ]}.

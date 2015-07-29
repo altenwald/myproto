@@ -1,8 +1,10 @@
 -module(my_packet).
+-author('Manuel Rubio <manuel@altenwald.com>').
+-author('Max Lapshin <max@maxidoors.ru>').
 
 -export([encode/1, decode/1, decode_auth/1]).
 
--include("../include/myproto.hrl").
+-include("myproto.hrl").
 
 encode(#response{
         status=?STATUS_EOF, id=Id, warnings=Warnings, 
@@ -19,7 +21,8 @@ encode(#response{
         error_info = Code, info = Info
     }) when Code =/= <<"">> ->
     Length = byte_size(Info) + 9,
-    <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, "#", Code:5/binary, Info/binary>>;
+    <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, "#", Code:5/binary,
+        Info/binary>>;
 encode(#response{
         status=?STATUS_ERR, id=Id, error_code=Error,
         info = Info
@@ -89,8 +92,7 @@ encode(#response{
         ?CLIENT_SECURE_CONNECTION bor %% for mysql_native_password
         0,
     <<CapsLow:16/little, CapsUp:16/little>> = <<Caps:32/little>>,
-    % <<IntHash:160/little-unsigned-integer>> = Hash,
-    <<Auth1:8/binary, Auth2/binary>> = Hash, %<<IntHash:160/little-unsigned-integer>>,
+    <<Auth1:8/binary, Auth2/binary>> = Hash,
     LenAuth = 21,
     StatusFlags = 
         ?SERVER_STATUS_AUTOCOMMIT bor
@@ -131,7 +133,6 @@ encode_column(#column{
         {?TYPE_LONGLONG,undefined} -> 16#15;
         {_,undefined} -> 0
     end,
-    % lager:debug("Column to encode: ~p~n", [Column]),
     Payload = <<
         3:8, "def", 
         SchemaLen/binary, Schema/binary,
@@ -159,7 +160,8 @@ encode_rows(Rows, Cols, Id) ->
                        T == ?TYPE_LONG orelse
                        T == ?TYPE_LONGLONG orelse
                        T == ?TYPE_INT24 orelse
-                       T == ?TYPE_YEAR) andalso is_integer(Cell) -> integer_to_binary(Cell);
+                       T == ?TYPE_YEAR) andalso is_integer(Cell) ->
+                    integer_to_binary(Cell);
                 _ when is_binary(Cell) -> Cell;
                 _ -> error({cannot_encode,Name,Type,Cell})
             end,
@@ -173,10 +175,7 @@ encode_rows(Rows, Cols, Id) ->
         {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
     end, {Id, <<"">>}, Rows).
 
-
-
 -spec decode_auth(binary()) -> {ok, user(), binary()} | {more, binary()}.
-
 
 decode_auth(<<Length:24/little, 1:8, Bin:Length/binary, Rest/binary>>) ->
     {ok, decode_auth0(Bin), Rest};
@@ -187,8 +186,10 @@ decode_auth(<<Length:24/little, 1:8, Bin/binary>>) ->
 decode_auth(<<Bin/binary>>) ->
     {more, 4 - size(Bin)}.
 
+-spec decode_auth0(Auth::binary()) -> request().
 
-decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:23/binary, Info0/binary>>) ->
+decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8,
+        _Reserved:23/binary, Info0/binary>>) ->
     Caps = unpack_caps(CapsFlag),
     {User, Info1} = unpack_zero(Info0),
 
@@ -206,8 +207,10 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
 
     HasPluginAuth = proplists:get_value(plugin_auth, Caps),
     {DB, Info3} = case proplists:get_value(connect_with_db, Caps) of
-        % For some strange reasons mysql 5.0.6 violates protocol and doesn't send db name
-        % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse41
+        % For some strange reasons mysql 5.0.6 violates protocol and doesn't
+        % send db name
+        % http://dev.mysql.com/doc/internals/en/connection-phase-packets.html
+        %   #packet-Protocol::HandshakeResponse41
         % so we write here a dirty hack for pymysql
         true when HasPluginAuth == undefined andalso size(Info2) > 0 ->
             unpack_zero(Info2);
@@ -230,10 +233,13 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8, _Reserved:
     },
     #request{command=?COM_AUTH, info=UserData}.
 
+-spec unpack_zero(String::binary()) -> {B1::binary(), B2::binary()}.
+
 unpack_zero(String) ->
     [B1, B2] = binary:split(String, <<0>>),
     {B1, B2}.
 
+-spec unpack_caps(Flag::integer()) -> [atom()].
 
 unpack_caps(Flag) ->
     Caps = [
@@ -266,11 +272,9 @@ unpack_caps(Flag) ->
         end
     end, Caps).
 
-
 -spec decode(binary()) -> {ok, response(), binary()} | {more, binary()}.
 
 decode(<<Length:24/little, Id, Bin:Length/binary, Rest/binary>>) ->
-    % lager:info("incoming packet: ~p", [Bin]),
     {ok, decode0(Length, Id, Bin), Rest};
 
 decode(<<Length:24/little, _Id, Bin/binary>>) ->
@@ -278,6 +282,8 @@ decode(<<Length:24/little, _Id, Bin/binary>>) ->
 
 decode(<<Bin/binary>>) ->
     {more, 4 - size(Bin)}.
+
+-spec decode0(Length::integer(), Id::binary(), Bin::binary()) -> request().
 
 decode0(_, Id, <<?COM_FIELD_LIST:8, Info/binary>>) ->
     #request{
@@ -299,6 +305,8 @@ decode0(_, Id, <<Command:8, Info/binary>>) ->
         info=Info,
         continue=false
     }.
+
+-spec bin_to_upper(Lower::binary()) -> Upper::binary().
 
 bin_to_upper(Lower) when is_binary(Lower) ->
     << <<(
