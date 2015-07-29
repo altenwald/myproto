@@ -1,5 +1,5 @@
 -module(my_acceptor).
--author('bombadil@bosqueviejo.net').
+-author('Manuel Rubio <manuel@altenwald.com>').
  
 -behaviour(gen_server).
  

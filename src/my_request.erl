@@ -1,11 +1,11 @@
 -module(my_request).
--author('bombadil@bosqueviejo.net').
+-author('Manuel Rubio <manuel@altenwald.com>').
  
 -behaviour(gen_fsm).
  
 -define(SERVER, ?MODULE).
 
--include("../include/myproto.hrl").
+-include("myproto.hrl").
  
 -export([start/4, check_clean_pass/2, check_sha1_pass/2, sha1_hex/1, to_hex/1]).
 -export([init/1, handle_sync_event/4, handle_event/3, handle_info/3,
@@ -83,9 +83,15 @@ init([Socket, Id, Handler, ParseQuery]) ->
         info=Hash
     },
     gen_tcp:send(Socket, my_packet:encode(Hello)),
-    {ok, auth, #state{socket=Socket, id=Id, hash=Hash, handler=Handler, parse_query=ParseQuery}}.
+    {ok, auth, #state{
+        socket=Socket,
+        id=Id,
+        hash=Hash,
+        handler=Handler,
+        parse_query=ParseQuery}}.
 
-handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,handler=Handler}) ->
+handle_info({tcp,_Port, Info}, auth,
+        #state{hash=Hash,socket=Socket,handler=Handler}=StateData) ->
     {ok, #request{info=#user{
         name=User, password=Password
     }}, <<>>} = my_packet:decode_auth(Info),
@@ -121,7 +127,9 @@ handle_info({tcp,_Port, Info}, auth, StateData=#state{hash=Hash,socket=Socket,ha
             {stop, normal, StateData}
     end;
 
-handle_info({tcp,_Port,Msg}, normal, #state{socket=Socket,handler=Handler,packet=Packet,handler_state=HandlerState}=StateData) ->
+handle_info({tcp,_Port,Msg}, normal,
+        #state{socket=Socket,handler=Handler,packet=Packet,
+            handler_state=HandlerState}=StateData) ->
     case my_packet:decode(Msg) of
         {ok, #request{continue=true, info=Info}=Request, <<>>} ->
             lager:debug("Received (partial): ~p~n", [Request]),

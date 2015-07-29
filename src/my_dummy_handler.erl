@@ -1,7 +1,10 @@
 -module(my_dummy_handler).
+-author('Manuel Rubio <manuel@altenwald.com>').
+-author('Max Lapshin <max@maxidoors.ru>').
+
 -behaviour(gen_myproto).
 
--include("../include/myproto.hrl").
+-include("myproto.hrl").
 
 -export([check_pass/1, execute/2, metadata/2, terminate/2]).
 
@@ -13,16 +16,17 @@ check_pass(#user{name = User, server_hash = Hash, password = Password}) ->
 
 
 metadata(version, State) ->
-  {reply, <<"dummy handler 1.0">>, State};
+    {reply, <<"dummy handler 1.0">>, State};
 
 metadata({connect_db, _Database}, State) ->
-  {noreply, State};
+    {noreply, State};
 
 metadata(databases, State) ->
-  {reply, [<<"myfakedatabase">>], State};
+    {reply, [<<"myfakedatabase">>], State};
 
 metadata(_, State) ->
-  {noreply, State}.
+    {noreply, State}.
+
 
 execute(#request{info = #select{params=[#variable{name = <<"version_comment">>}]}}, State) ->
     Info = {
@@ -30,9 +34,11 @@ execute(#request{info = #select{params=[#variable{name = <<"version_comment">>}]
         [[<<"myproto 0.1">>]]
     },
     {reply, #response{status=?STATUS_OK, info=Info}, State};
+
 execute(#request{command = ?COM_QUIT}, State) ->
     lager:info("Exiting~n", []),
     {stop, normal, State};
+
 execute(#request{command = ?COM_INIT_DB, info=Database}, State) ->
     lager:info("Change database to: ~p~n", [Database]),
     {reply, #response {
@@ -40,11 +46,13 @@ execute(#request{command = ?COM_INIT_DB, info=Database}, State) ->
         affected_rows = 0, last_insert_id = 0,
         status_flags = 0, warnings = 0
     }, State};
+
 execute(#request{command=?COM_FIELD_LIST, id=_Id, info=_Table}, State) ->
     {reply, #response{
         status=?STATUS_ERR, error_code=2003, %% TODO: found the correct error code
         info = <<"Not implemented field list">>
     }, State};    
+
 execute(#request{command = ?COM_QUERY, info={use, Database}}, State) ->
     lager:info("Change database to: ~p~n", [Database]),
     {reply, #response {
@@ -52,6 +60,7 @@ execute(#request{command = ?COM_QUERY, info={use, Database}}, State) ->
         affected_rows = 0, last_insert_id = 0,
         status_flags = 0, warnings = 0
     }, State};
+
 execute(Request, State) ->
     lager:info("Request: ~p~n", [Request]),
     Info = {
@@ -65,6 +74,7 @@ execute(Request, State) ->
         ]
     },
     {reply, #response{status=?STATUS_OK, info=Info}, State}.
+
 
 terminate(_Reason, _State) ->
     ok.
