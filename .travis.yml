@@ -1,5 +1,5 @@
 language: erlang
-script  : "./rebar compile && ./rebar skip_deps=true eunit"
+script  : "./rebar compile && ./rebar skip_deps=true ct"
 otp_release:
 - 17.4
 # fails to publish SSL information to coveralls (SSL issue in this version)
