@@ -1,5 +1,8 @@
 all: compile
 
+deps:
+	./rebar get-deps compile
+
 compile: deps/neotoma/ebin/neotoma.beam
 	./rebar compile skip_deps=true
 
@@ -14,4 +17,4 @@ test: deps/neotoma/ebin/neotoma.beam
 	./rebar ct skip_deps=true
 	./covertool -cover myproto.coverdata -appname myproto -output cobertura.xml
 
-.PHONY: test compile clean all
+.PHONY: test compile clean all deps
