@@ -1,7 +1,9 @@
 Overview
 ========
 
-[![Build Status](https://api.travis-ci.org/altenwald/myproto.png)](https://travis-ci.org/altenwald/myproto)
+[![Build Status](https://img.shields.io/travis/altenwald/myproto/master.svg)](https://travis-ci.org/altenwald/myproto)
+[![Codecov](https://img.shields.io/codecov/c/github/altenwald/myproto.svg)](https://codecov.io/gh/altenwald/myproto)
+[![License: LGPL 2.1](https://img.shields.io/github/license/altenwald/myproto.svg)](https://raw.githubusercontent.com/altenwald/myproto/master/COPYING)
 
 MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
 
@@ -210,7 +212,3 @@ SELECT * FROM sometable;
 ```
 
 Done :-)
-
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/altenwald/myproto/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-

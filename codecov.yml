@@ -1,0 +1,22 @@
+codecov:
+  branch: master
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  notify:
+    slack:
+      default:
+        url: "https://hooks.slack.com/services/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"
+        threshold: "0.5%"
+        branches: master
+        attachments: "sunburst, diff"
+  ignore:
+    - "src/*.peg"
+  status:
+    project:
+      default:
+        target: auto
+        threshold: "0.5%"
+        branches: master

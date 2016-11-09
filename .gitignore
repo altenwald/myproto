@@ -7,3 +7,5 @@ ebin/
 log/
 src/mysql_proto.erl
 logs/
+cobertura.xml
+myproto.coverdata

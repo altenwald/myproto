@@ -11,5 +11,6 @@ clean:
 
 test: deps/neotoma/ebin/neotoma.beam
 	./rebar ct skip_deps=true
+	./covertool -cover myproto.coverdata -appname myproto -output cobertura.xml
 
 .PHONY: test
