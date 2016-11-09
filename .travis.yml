@@ -3,7 +3,8 @@ script  : "make compile test"
 install: "sudo pip install codecov"
 after_success: "codecov"
 otp_release:
-- 19.0
+# the code looks like it's not still prepared for OTP 19
+#- 19.0
 - 18.3
 - 18.2.1
 - 18.2
