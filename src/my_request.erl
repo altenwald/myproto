@@ -16,6 +16,7 @@
     id      :: integer(),              %% connection id
     hash    :: binary(),               %% hash for auth
     handler :: atom(),                 %% Handler for auth/queries
+    msg = <<>> :: binary(),            %% Received sql query when partial
     packet = <<>> :: binary(),         %% Received packet
     parse_query = false :: boolean(),  %% parse the received string or not
     handler_state
@@ -129,11 +130,16 @@ handle_info({tcp,_Port, Info}, auth,
 
 handle_info({tcp,_Port,Msg}, normal,
         #state{socket=Socket,handler=Handler,packet=Packet,
+            msg=PrevMsg,
             handler_state=HandlerState}=StateData) ->
-    case my_packet:decode(Msg) of
+    Msg2 = <<PrevMsg/binary, Msg/binary>>,
+    case my_packet:decode(Msg2) of
         {ok, #request{continue=true, info=Info}=Request, <<>>} ->
             lager:debug("Received (partial): ~p~n", [Request]),
             {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
+        {more, _NumBytes} ->
+            lager:debug("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
+            {next_state, normal, StateData#state{msg = Msg2}};
         {ok, #request{continue=false, id=Id, info=Info, command=Command}=Request, <<>>} ->
             lager:debug("Received: ~p~n", [Request]),
             FullPacket = <<Packet/binary, Info/binary>>,
