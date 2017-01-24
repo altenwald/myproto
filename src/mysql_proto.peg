@@ -306,7 +306,7 @@ params <- head:param tail:( space? ',' space? param )* `
 `;
 
 param_general <- param_var / param_function / param_value / param_key / param_sql ~;
-param <- param_var / param_arithmetic / param_function / param_value / param_all / param_all_alias / param_key_alias / param_key / param_sql ~;
+param <- param_question / param_var / param_arithmetic / param_function / param_value / param_all / param_all_alias / param_key_alias / param_key / param_sql ~;
 
 param_sql <- subquery (space as space key)? `
     case Node of
@@ -506,7 +506,7 @@ shutdown <- #(?i)shutdown# `shutdown`;
 super <- #(?i)super# `super`;
 trigger <- #(?i)trigger# `trigger`;
 process <- #(?i)process# `process`;
-
+param_question <- '?' `"?"`;
 
 % complex types
 keys <- head:key tail:( space? ',' space? key )* `
