@@ -64,6 +64,53 @@ encode(#response{
         status_flags=?SERVER_STATUS_AUTOCOMMIT
     }),
     <<Head/binary, ColsBin/binary, ColsEof/binary, RowsPack/binary, RowsEof/binary>>;
+
+% response for prepare statement
+encode(#response{
+    status=?STATUS_OK, id=Id, info={prepare_statement_response, StatementId, WarningCount, Cols, Params}
+}) ->
+    NumColumns = length(Cols),
+    NumParams = length(Params),
+    FirstPacketLength = 12,
+    FirstPacket = <<FirstPacketLength:24/little, Id:8,
+        ?STATUS_OK:8, StatementId:32/little, NumColumns:16/little,
+        NumParams:16/little, 0, WarningCount:16/little>>,
+
+    %% params
+    {IdEof, ParamsPack, ParamsEof} = case NumParams of
+                                          V2 when V2 > 0 ->
+                                              {Id2, Bin2} = encode_column(Params, Id+1),
+                                              %% eof
+                                              Eof2 = encode(#response{
+                                                  status=?STATUS_EOF,
+                                                  id=Id2,
+                                                  status_flags=?SERVER_STATUS_AUTOCOMMIT
+                                              }),
+                                              {Id2, Bin2, Eof2};
+                                          _ ->
+                                              {Id, <<>>, <<>>}
+                                      end,
+
+    %% Column account
+    {_IdEnd, ColsBin, ColsEof} = case NumColumns of
+                                    V1 when V1 > 0 ->
+                                        %% columns
+                                        {Id1, Bin1} = encode_column(Cols, IdEof+1),
+                                        %% eof
+                                        Eof1 = encode(#response{
+                                            status=?STATUS_EOF,
+                                            id=Id1,
+                                            status_flags=?SERVER_STATUS_AUTOCOMMIT
+                                        }),
+                                        {Id1, Bin1, Eof1};
+                                    _ ->
+                                        {IdEof, <<>>, <<>>}
+                                end,
+
+
+
+    <<FirstPacket/binary,  ParamsPack/binary, ParamsEof/binary, ColsBin/binary, ColsEof/binary>>;
+
 encode(#response{
         status=?STATUS_OK, id=Id, info = Info,
         affected_rows = AffectedRows, last_insert_id = LastInsertId,
