@@ -101,7 +101,7 @@ Now, you can create the `apps/mydummy/src/mydummy.erl` module:
     db
 }).
 
-check_pass(#user{name = User, server_hash = Hash, password = Password}) ->
+check_pass(User, Hash, _Password) ->
     case my_request:check_clean_pass(User, Hash) of
         HashedPassword -> {ok, HashedPassword, #my{}};
         _ -> {error, <<"Password incorrect!">>}
@@ -117,10 +117,10 @@ metadata({connect_db, Database}, State) ->
 metadata(databases, State) ->
     {reply, [<<"comet">>], State};
 
-metadata(tables, #db{db = <<"storage">>} = State) ->
+metadata(tables, #my{db = <<"storage">>} = State) ->
     {reply, {<<"storage">>, [<<"channels">>, <<"users">>]}, State};
 
-metadata({fields, <<"channels">> = Table}, #db{db = <<"storage">> = DB} = State) ->
+metadata({fields, <<"channels">> = Table}, #my{db = <<"storage">> = DB} = State) ->
     {reply, {DB, Table, [{name,string},{users_count,integer},{started_at,integer}]}, State};
 
 metadata(_, #my{} = State) ->
