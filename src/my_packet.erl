@@ -7,22 +7,23 @@
 -include("myproto.hrl").
 
 encode(#response{
-        status=?STATUS_EOF, id=Id, warnings=Warnings, 
+        status=?STATUS_EOF, id=Id, warnings=Warnings,
         status_flags=StatusFlags
     }) when Warnings == 0 andalso StatusFlags == 0 ->
     <<1:24/little, Id:8, ?STATUS_EOF:8>>;
 encode(#response{
-        status=?STATUS_EOF, id=Id, warnings=Warnings, 
+        status=?STATUS_EOF, id=Id, warnings=Warnings,
         status_flags=StatusFlags
     }) ->
-    <<5:24/little, Id:8, ?STATUS_EOF:8, Warnings:16/little, StatusFlags:16/little>>;
+    <<5:24/little, Id:8, ?STATUS_EOF:8, Warnings:16/little,
+      StatusFlags:16/little>>;
 encode(#response{
         status=?STATUS_ERR, id=Id, error_code=Error,
         error_info = Code, info = Info
     }) when Code =/= <<"">> ->
     Length = byte_size(Info) + 9,
-    <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, "#", Code:5/binary,
-        Info/binary>>;
+    <<Length:24/little, Id:8, ?STATUS_ERR:8, Error:16/little, "#",
+      Code:5/binary, Info/binary>>;
 encode(#response{
         status=?STATUS_ERR, id=Id, error_code=Error,
         info = Info
@@ -36,8 +37,8 @@ encode(#response{
     {IdEof, ColsBin} = encode_column(Cols, Id),
     %% eof
     ColsEof = encode(#response{
-        status=?STATUS_EOF, 
-        id=IdEof, 
+        status=?STATUS_EOF,
+        id=IdEof,
         status_flags=?SERVER_STATUS_AUTOCOMMIT
     }),
     <<ColsBin/binary, ColsEof/binary>>;
@@ -51,8 +52,8 @@ encode(#response{
     {IdEof, ColsBin} = encode_column(Cols, Id+1),
     %% eof
     ColsEof = encode(#response{
-        status=?STATUS_EOF, 
-        id=IdEof, 
+        status=?STATUS_EOF,
+        id=IdEof,
         status_flags=?SERVER_STATUS_AUTOCOMMIT
     }),
     %% rows
@@ -63,77 +64,75 @@ encode(#response{
         id=IdEnd,
         status_flags=?SERVER_STATUS_AUTOCOMMIT
     }),
-    <<Head/binary, ColsBin/binary, ColsEof/binary, RowsPack/binary, RowsEof/binary>>;
+    <<Head/binary, ColsBin/binary, ColsEof/binary, RowsPack/binary,
+      RowsEof/binary>>;
 
 % response for prepare statement
-encode(#response{
-    status=?STATUS_OK, id=Id, info={prepare_statement_response, StatementId, WarningCount, Cols, Params}
-}) ->
+encode(#response{status = ?STATUS_OK,
+                 id = Id,
+                 info = {prepare_statement_response,
+                         StatementId, WarningCount, Cols, Params}}) ->
     NumColumns = length(Cols),
     NumParams = length(Params),
     FirstPacketLength = 12,
     FirstPacket = <<FirstPacketLength:24/little, Id:8,
-        ?STATUS_OK:8, StatementId:32/little, NumColumns:16/little,
-        NumParams:16/little, 0, WarningCount:16/little>>,
+                    ?STATUS_OK:8, StatementId:32/little, NumColumns:16/little,
+                    NumParams:16/little, 0, WarningCount:16/little>>,
 
     %% params
-    {IdEof, ParamsPack, ParamsEof} = case NumParams of
-                                          V2 when V2 > 0 ->
-                                              {Id2, Bin2} = encode_column(Params, Id+1),
-                                              %% eof
-                                              Eof2 = encode(#response{
-                                                  status=?STATUS_EOF,
-                                                  id=Id2,
-                                                  status_flags=?SERVER_STATUS_AUTOCOMMIT
-                                              }),
-                                              {Id2, Bin2, Eof2};
-                                          _ ->
-                                              {Id, <<>>, <<>>}
-                                      end,
+    {IdEof, ParamsPack, ParamsEof} =
+      case NumParams of
+        V2 when V2 > 0 ->
+            {Id2, Bin2} = encode_column(Params, Id+1),
+            %% eof
+            Eof2 = encode(#response{status = ?STATUS_EOF,
+                                    id = Id2,
+                                    status_flags = ?SERVER_STATUS_AUTOCOMMIT}),
+            {Id2, Bin2, Eof2};
+        _ ->
+            {Id, <<>>, <<>>}
+      end,
 
     %% Column account
-    {_IdEnd, ColsBin, ColsEof} = case NumColumns of
-                                    V1 when V1 > 0 ->
-                                        %% columns
-                                        {Id1, Bin1} = encode_column(Cols, IdEof+1),
-                                        %% eof
-                                        Eof1 = encode(#response{
-                                            status=?STATUS_EOF,
-                                            id=Id1,
-                                            status_flags=?SERVER_STATUS_AUTOCOMMIT
-                                        }),
-                                        {Id1, Bin1, Eof1};
-                                    _ ->
-                                        {IdEof, <<>>, <<>>}
-                                end,
+    {_IdEnd, ColsBin, ColsEof} =
+      case NumColumns of
+        V1 when V1 > 0 ->
+            %% columns
+            {Id1, Bin1} = encode_column(Cols, IdEof+1),
+            %% eof
+            Eof1 = encode(#response{status = ?STATUS_EOF,
+                                    id = Id1,
+                                    status_flags = ?SERVER_STATUS_AUTOCOMMIT}),
+            {Id1, Bin1, Eof1};
+        _ ->
+            {IdEof, <<>>, <<>>}
+      end,
 
+    <<FirstPacket/binary,  ParamsPack/binary, ParamsEof/binary, ColsBin/binary,
+      ColsEof/binary>>;
 
-
-    <<FirstPacket/binary,  ParamsPack/binary, ParamsEof/binary, ColsBin/binary, ColsEof/binary>>;
-
-encode(#response{
-        status=?STATUS_OK, id=Id, info = Info,
-        affected_rows = AffectedRows, last_insert_id = LastInsertId,
-        status_flags = StatusFlags, warnings = Warnings
-    }) ->
+encode(#response{status = ?STATUS_OK,
+                 id = Id,
+                 info = Info,
+                 affected_rows = AffectedRows,
+                 last_insert_id = LastInsertId,
+                 status_flags = StatusFlags,
+                 warnings = Warnings}) ->
     BinAffectedRows = my_datatypes:number_to_var_integer(AffectedRows),
     BinLastInsertId = my_datatypes:number_to_var_integer(LastInsertId),
-    Length = byte_size(BinAffectedRows) + byte_size(BinLastInsertId) + byte_size(Info) + 5,
-    <<
-        Length:24/little, Id:8, ?STATUS_OK:8, BinAffectedRows/binary, 
-        BinLastInsertId/binary, StatusFlags:16/little, Warnings:16/little,
-        Info/binary
-    >>;
-encode(#response{
-        status=?STATUS_HELLO, id=Id, info=Hash
-    }) ->
-    20 == size(Hash) orelse error({invalid_hash_size,size(Hash),need,20}),
+    Length = byte_size(BinAffectedRows) + byte_size(BinLastInsertId) +
+             byte_size(Info) + 5,
+    <<Length:24/little, Id:8, ?STATUS_OK:8, BinAffectedRows/binary,
+      BinLastInsertId/binary, StatusFlags:16/little, Warnings:16/little,
+      Info/binary>>;
+encode(#response{status = ?STATUS_HELLO, id = Id, info = Hash}) ->
+    20 == size(Hash) orelse error({invalid_hash_size, size(Hash), need, 20}),
     ServerSign = case application:get_env(myproto, server_sign) of
         {ok, SS} when is_binary(SS) -> SS;
         {ok, SS} when is_list(SS) -> list_to_binary(SS);
         undefined -> ?SERVER_SIGN
     end,
-    Caps = 
+    Caps =
         ?CLIENT_PLUGIN_AUTH bor %% PLAIN AUTH
         ?CLIENT_PROTOCOL_41 bor %% PROTOCOL 4.1
         ?CLIENT_SECURE_CONNECTION bor %% for mysql_native_password
@@ -141,73 +140,68 @@ encode(#response{
     <<CapsLow:16/little, CapsUp:16/little>> = <<Caps:32/little>>,
     <<Auth1:8/binary, Auth2/binary>> = Hash,
     LenAuth = 21,
-    StatusFlags = 
+    StatusFlags =
         ?SERVER_STATUS_AUTOCOMMIT bor
         0,
     Charset = ?UTF8_GENERAL_CI,
-    Info = <<
-        ServerSign/binary, 0:8, Id:32/little, 
-        Auth1/binary, 0:8, CapsLow:16/little,
-        Charset:8, StatusFlags:16/little, 
-        CapsUp:16/little, LenAuth:8, 0:80,
-        Auth2/binary, 0:8, "mysql_native_password", 0:8
-    >>,
+    Info = <<ServerSign/binary, 0:8, Id:32/little,
+             Auth1/binary, 0:8, CapsLow:16/little,
+             Charset:8, StatusFlags:16/little,
+             CapsUp:16/little, LenAuth:8, 0:80,
+             Auth2/binary, 0:8, "mysql_native_password", 0:8>>,
     Length = byte_size(Info) + 1,
-    << Length:24/little, 0:8, ?STATUS_HELLO:8, Info/binary >>.
+    <<Length:24/little, 0:8, ?STATUS_HELLO:8, Info/binary>>.
 
 encode_column(Cols, Id) when is_list(Cols) ->
     lists:foldl(fun(Col, {NewId, Data}) ->
         BinCol = encode_column(Col, NewId),
         {NewId+1, <<Data/binary, BinCol/binary>>}
     end, {Id, <<"">>}, Cols);
-encode_column(#column{
-        schema = Schema, table = Table, name = Name,
-        charset = Charset, length = L, type = Type,
-        flags = Flags, decimals = Decimals, org_name = ON
-    }=_Column, Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
-    is_integer(Charset), is_integer(Type), is_integer(Flags), 
-    is_integer(Decimals) ->
+encode_column(#column{schema = Schema, table = Table, name = Name,
+                      charset = Charset, length = L, type = Type,
+                      flags = Flags, decimals = Decimals, org_name = ON},
+              Id) when is_binary(Schema), is_binary(Table), is_binary(Name),
+                       is_integer(Charset), is_integer(Type), is_integer(Flags),
+                       is_integer(Decimals) ->
     SchemaLen = my_datatypes:number_to_var_integer(byte_size(Schema)),
     TableLen = my_datatypes:number_to_var_integer(byte_size(Table)),
     NameLen = my_datatypes:number_to_var_integer(byte_size(Name)),
-    {OrgNameLen, OrgName} = case ON of 
+    {OrgNameLen, OrgName} = case ON of
         undefined -> {NameLen, bin_to_upper(Name)};
         ON -> {my_datatypes:number_to_var_integer(byte_size(ON)), ON}
     end,
-    Length = case {Type, L} of 
+    Length = case {Type, L} of
         _ when is_integer(L) -> L;
-        {?TYPE_DATETIME,undefined} -> 16#13;
-        {?TYPE_LONGLONG,undefined} -> 16#15;
-        {_,undefined} -> 0
+        {?TYPE_DATETIME, undefined} -> 16#13;
+        {?TYPE_LONGLONG, undefined} -> 16#15;
+        {_, undefined} -> 0
     end,
-    Payload = <<
-        3:8, "def", 
-        SchemaLen/binary, Schema/binary,
-        TableLen/binary, Table/binary, % table
-        TableLen/binary, Table/binary, % org_table
-        NameLen/binary, Name/binary, % name
-        OrgNameLen/binary, OrgName/binary, % org_name
-        16#0c:8, Charset:16/little,
-        Length:32/little, Type:8, Flags:16/little,
-        Decimals:8/little,
-        0:16/little
-    >>,
+    Payload = <<3:8, "def",
+                SchemaLen/binary, Schema/binary,
+                TableLen/binary, Table/binary, % table
+                TableLen/binary, Table/binary, % org_table
+                NameLen/binary, Name/binary, % name
+                OrgNameLen/binary, OrgName/binary, % org_name
+                16#0c:8, Charset:16/little,
+                Length:32/little, Type:8, Flags:16/little,
+                Decimals:8/little,
+                0:16/little>>,
     PayloadLen = byte_size(Payload),
     <<PayloadLen:24/little, Id:8, Payload/binary>>.
 
 encode_rows(Rows, Cols, Id) ->
     lists:foldl(fun(Values, {NewId, Data}) ->
-        Payload = lists:foldl(fun({#column{type = Type, name = Name}, Cell}, Binary) ->
-            Cell1 = case Type of
-                _ when Cell == undefined -> undefined;
-                _ when Cell == true -> <<"1">>;
-                _ when Cell == false -> <<"0">>;
-                T when (T == ?TYPE_TINY orelse
-                       T == ?TYPE_SHORT orelse
-                       T == ?TYPE_LONG orelse
-                       T == ?TYPE_LONGLONG orelse
-                       T == ?TYPE_INT24 orelse
-                       T == ?TYPE_YEAR) andalso is_integer(Cell) ->
+        F = fun({#column{type = Type, name = Name}, Cell}, Binary) ->
+            Cell1 = case Cell of
+                undefined -> undefined;
+                true -> <<"1">>;
+                false -> <<"0">>;
+                _ when (Type == ?TYPE_TINY orelse
+                        Type == ?TYPE_SHORT orelse
+                        Type == ?TYPE_LONG orelse
+                        Type == ?TYPE_LONGLONG orelse
+                        Type == ?TYPE_INT24 orelse
+                        Type == ?TYPE_YEAR) andalso is_integer(Cell) ->
                     integer_to_binary(Cell);
                 _ when is_binary(Cell) -> Cell;
                 _ -> error({cannot_encode,Name,Type,Cell})
@@ -217,10 +211,11 @@ encode_rows(Rows, Cols, Id) ->
                 _ -> my_datatypes:binary_to_varchar(Cell1)
             end,
             <<Binary/binary, CellEnc/binary>>
-        end, <<"">>, lists:zip(Cols,Values)),
+        end,
+        Payload = lists:foldl(F, <<>>, lists:zip(Cols, Values)),
         Length = byte_size(Payload),
-        {NewId+1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
-    end, {Id, <<"">>}, Rows).
+        {NewId + 1, <<Data/binary, Length:24/little, NewId:8, Payload/binary>>}
+    end, {Id, <<>>}, Rows).
 
 -spec decode_auth(binary()) -> {ok, user(), binary()} | {more, binary()}.
 
@@ -236,12 +231,13 @@ decode_auth(<<Bin/binary>>) ->
 -spec decode_auth0(Auth::binary()) -> request().
 
 decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8,
-        _Reserved:23/binary, Info0/binary>>) ->
+               _Reserved:23/binary, Info0/binary>>) ->
     Caps = unpack_caps(CapsFlag),
     {User, Info1} = unpack_zero(Info0),
 
     {Password,Info2} = case proplists:get_value(auth_lenenc_client_data,Caps) of
-        true -> my_datatypes:read_lenenc_string(Info1);
+        true ->
+            my_datatypes:read_lenenc_string(Info1);
         _ ->
             case proplists:get_value(secure_connection, Caps) of
                 true ->
@@ -271,12 +267,12 @@ decode_auth0(<<CapsFlag:32/little, _MaxPackSize:32/little, Charset:8,
             {undefined, Info3}
     end,
     UserData = #user{
-        name=User, 
-        password=Password, 
-        plugin=Plugin,
-        capabilities=Caps,
-        database=DB,
-        charset=Charset
+        name = User,
+        password = Password,
+        plugin = Plugin,
+        capabilities = Caps,
+        database = DB,
+        charset = Charset
     },
     #request{command=?COM_AUTH, info=UserData}.
 
@@ -333,31 +329,26 @@ decode(<<Bin/binary>>) ->
 -spec decode0(Length::integer(), Id::binary(), Bin::binary()) -> request().
 
 decode0(_, Id, <<?COM_FIELD_LIST:8, Info/binary>>) ->
-    #request{
-        command=?COM_FIELD_LIST, 
-        id=Id, 
-        info=my_datatypes:string_nul_to_binary(Info)
-    };
+    #request{command = ?COM_FIELD_LIST,
+             id = Id,
+             info = my_datatypes:string_nul_to_binary(Info)};
 decode0(16#ffffff, Id, <<Command:8, Info/binary>>) ->
-    #request{
-        command=Command,
-        id=Id,
-        info=Info, 
-        continue=true
-    };
+    #request{command = Command,
+             id = Id,
+             info = Info,
+             continue = true};
 decode0(_, Id, <<Command:8, Info/binary>>) ->
-    #request{
-        command=Command,
-        id=Id,
-        info=Info,
-        continue=false
-    }.
+    #request{command = Command,
+             id = Id,
+             info = Info,
+             continue = false}.
 
 -spec bin_to_upper(Lower::binary()) -> Upper::binary().
 
 bin_to_upper(Lower) when is_binary(Lower) ->
     << <<(
-        if 
-            X >= $a andalso X =< $z -> X-32; 
-            true -> X end
+        if
+            X >= $a andalso X =< $z -> X - 32;
+            true -> X
+        end
     )/integer>> || <<X>> <= Lower >>.

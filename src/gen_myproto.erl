@@ -3,12 +3,10 @@
 
 -include("myproto.hrl").
 
--callback check_pass(
-    #user{}
-) -> 
-    {ok, password(), State::term()} | 
-    {error, Reason::binary()} |
-    {error, Code::integer(), Reason::binary()}.
+-callback check_pass(user_string()) ->
+    {ok, password(), state()} |
+    {error, reason()} |
+    {error, code(), reason()}.
 
 
 -type metadata() ::
@@ -20,21 +18,15 @@
 
 -callback metadata(metadata(), state()) ->
     {reply, Value::any(), state()} |
-    {error, Reason::any(), state()} |
+    {error, reason(), state()} |
     {noreply, state()}.
 
 
--callback execute(
-    Query :: request(),
-    state()
-) ->
+-callback execute(Query :: request(), state()) ->
     {reply, default, state()} |
     {reply, response(), state()} |
     {noreply, state()} |
-    {stop, Reason::term(), state()}.
+    {stop, reason(), state()}.
 
--callback terminate(
-    Reason :: term(),
-    state()
-) ->
-    ok.
+
+-callback terminate(reason(), state()) -> ok.

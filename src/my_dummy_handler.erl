@@ -36,11 +36,11 @@ execute(#request{info = #select{params=[#variable{name = <<"version_comment">>}]
     {reply, #response{status=?STATUS_OK, info=Info}, State};
 
 execute(#request{command = ?COM_QUIT}, State) ->
-    lager:info("Exiting~n", []),
+    ?INFO_MSG("Exiting~n", []),
     {stop, normal, State};
 
 execute(#request{command = ?COM_INIT_DB, info=Database}, State) ->
-    lager:info("Change database to: ~p~n", [Database]),
+    ?INFO_MSG("Change database to: ~p~n", [Database]),
     {reply, #response {
         status=?STATUS_OK, info = <<"Changed to ", Database/binary>>,
         affected_rows = 0, last_insert_id = 0,
@@ -51,10 +51,10 @@ execute(#request{command=?COM_FIELD_LIST, id=_Id, info=_Table}, State) ->
     {reply, #response{
         status=?STATUS_ERR, error_code=2003, %% TODO: found the correct error code
         info = <<"Not implemented field list">>
-    }, State};    
+    }, State};
 
 execute(#request{command = ?COM_QUERY, info={use, Database}}, State) ->
-    lager:info("Change database to: ~p~n", [Database]),
+    ?INFO_MSG("Change database to: ~p~n", [Database]),
     {reply, #response {
         status=?STATUS_OK, info = <<"Changed to ", Database/binary>>,
         affected_rows = 0, last_insert_id = 0,
@@ -62,7 +62,7 @@ execute(#request{command = ?COM_QUERY, info={use, Database}}, State) ->
     }, State};
 
 execute(Request, State) ->
-    lager:info("Request: ~p~n", [Request]),
+    ?INFO_MSG("Request: ~p~n", [Request]),
     Info = {
         [
             #column{name = <<"Info">>, type=?TYPE_VARCHAR, length=20},

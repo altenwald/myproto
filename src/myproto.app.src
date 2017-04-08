@@ -6,7 +6,7 @@
         kernel,
         stdlib
     ]},
-    {mod, {myproto, []}},
+    {mod, {myproto_app, []}},
     {env, [
         {port, 3306},
         {server_sign, <<"5.5-myproto">>},

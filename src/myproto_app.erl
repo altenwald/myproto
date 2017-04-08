@@ -1,4 +1,4 @@
--module(myproto).
+-module(myproto_app).
 -author('Manuel Rubio <manuel@altenwald.com>').
 
 -behaviour(application).
@@ -12,12 +12,6 @@
 
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, J), {I, {I, start_link, J}, permanent, 5000, worker, [I]}).
-
-%% Easy start command
--export([start/0]).
-
-start() ->
-    application:start(myproto).
 
 %% ===================================================================
 %% Application callbacks
@@ -37,10 +31,7 @@ init([]) ->
     Acceptor = case application:get_env(myproto, port) of
         {ok, Port} ->
             {ok, Handler} = application:get_env(myproto, handler),
-            ParseQuery = case application:get_env(myproto, parse_query) of 
-                {ok, PQ} ->  PQ;
-                _ -> false
-            end,
+            ParseQuery = application:get_env(myproto, parse_query, false),
             [?CHILD(my_acceptor, [Port, Handler, ParseQuery])];
         undefined ->
             []
