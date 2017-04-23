@@ -177,7 +177,11 @@ normal(#request{id = Id, info = Info, command = Command} = Request,
 
 handle_info({tcp, _Port, Msg}, auth, #state{msg = PrevMsg} = StateData) ->
     Msg2 = <<PrevMsg/binary, Msg/binary>>,
-    process_packet(my_packet:decode_auth(Msg2));
+    process_packet(Msg2, my_packet:decode_auth(Msg2), auth, StateData);
+
+handle_info({tcp, _Port, Msg}, normal, #state{msg = PrevMsg} = StateData) ->
+    Msg2 = <<PrevMsg/binary, Msg/binary>>,
+    process_packet(Msg2, my_packet:decode(Msg2), normal, StateData);
 
 handle_info({tcp_closed, _Socket}, _StateName, #state{id = Id} = StateData) ->
     ?INFO_MSG("Connection ID#~w closed~n", [Id]),
