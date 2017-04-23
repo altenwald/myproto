@@ -7,9 +7,25 @@
 
 -include("myproto.hrl").
 
--export([start/4, check_clean_pass/2, check_sha1_pass/2, sha1_hex/1, to_hex/1]).
--export([init/1, handle_sync_event/4, handle_event/3, handle_info/3,
-         terminate/3, code_change/4]).
+-export([
+    start/4,
+    check_clean_pass/2,
+    check_sha1_pass/2,
+    sha1_hex/1,
+    to_hex/1,
+
+    % states
+    auth/2,
+    normal/2,
+
+    % FSM callbacks
+    init/1,
+    handle_sync_event/4,
+    handle_event/3,
+    handle_info/3,
+    terminate/3,
+    code_change/4
+]).
 
 -record(state, {
     socket  :: gen_tcp:socket(),       %% TCP connection
@@ -24,12 +40,10 @@
 
 %% API
 
--spec start(
-    Socket::gen_tcp:socket(),
-    Id::integer(),
-    Handler::atom(),
-    ParseQuery::boolean()
-) -> {ok, pid()}.
+-spec start(Socket :: gen_tcp:socket(),
+            Id :: pos_integer(),
+            Handler :: atom(),
+            ParseQuery :: boolean()) -> {ok, pid()}.
 
 start(Socket, Id, Handler, ParseQuery) ->
     {ok, Pid} = gen_fsm:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
@@ -79,115 +93,91 @@ init([Socket, Id, Handler, ParseQuery]) ->
         ))
     ),
     Hello = #response{
-        id=Id,
-        status=?STATUS_HELLO,
-        info=Hash
+        id = Id,
+        status = ?STATUS_HELLO,
+        info = Hash
     },
     gen_tcp:send(Socket, my_packet:encode(Hello)),
     {ok, auth, #state{
-        socket=Socket,
-        id=Id,
-        hash=Hash,
-        handler=Handler,
-        parse_query=ParseQuery}}.
+        socket = Socket,
+        id = Id,
+        hash = Hash,
+        handler = Handler,
+        parse_query = ParseQuery}}.
 
-handle_info({tcp, _Port, Info},
-             auth,
-             #state{hash = Hash,
-                    socket = Socket,
-                    msg = PrevMsg,
-                    handler = Handler} = StateData) ->
-    Info2 = <<PrevMsg/binary, Info/binary>>,
-    case my_packet:decode_auth(Info2) of
-        {more, _NumBytes} ->
-            ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
-            {next_state, normal, StateData#state{msg = Info2}};
-        {ok, #request{info = #user{password = Password} = User}, <<>>} ->
-            ?DEBUG("Hash=~p; Pass=~p~n", [to_hex(Hash), to_hex(Password)]),
-            case Handler:check_pass(User#user{server_hash = Hash}) of
-                {ok, Password, HandlerState} ->
-                    Response = #response{status = ?STATUS_OK,
-                                         status_flags = ?SERVER_STATUS_AUTOCOMMIT,
-                                         id = 2},
-                    gen_tcp:send(Socket, my_packet:encode(Response)),
-                    {next_state, normal, StateData#state{handler_state=HandlerState}};
-                {error, Reason} ->
-                    Response = #response{status = ?STATUS_ERR,
-                                         error_code = 1045,
-                                         info = Reason,
-                                         id = 2},
-                    gen_tcp:send(Socket, my_packet:encode(Response)),
-                    gen_tcp:close(Socket),
-                    {stop, normal, StateData};
-                {error, Code, Reason} ->
-                    Response = #response{status = ?STATUS_ERR,
-                                         error_code = Code,
-                                         info = Reason,
-                                         id = 2},
-                    gen_tcp:send(Socket, my_packet:encode(Response)),
-                    gen_tcp:close(Socket),
-                    {stop, normal, StateData}
+auth(#request{info = #user{password = Password} = User},
+     #state{hash = Hash, socket = Socket, handler = Handler} = StateData) ->
+    ?DEBUG("Hash=~p; Pass=~p~n", [to_hex(Hash), to_hex(Password)]),
+    case Handler:check_pass(User#user{server_hash = Hash}) of
+        {ok, Password, HandlerState} ->
+            Response = #response{status = ?STATUS_OK,
+                                 status_flags = ?SERVER_STATUS_AUTOCOMMIT,
+                                 id = 2},
+            gen_tcp:send(Socket, my_packet:encode(Response)),
+            {next_state, normal, StateData#state{handler_state = HandlerState}};
+        {error, Reason} ->
+            Response = #response{status = ?STATUS_ERR,
+                                 error_code = 1045,
+                                 info = Reason,
+                                 id = 2},
+            gen_tcp:send(Socket, my_packet:encode(Response)),
+            gen_tcp:close(Socket),
+            {stop, normal, StateData};
+        {error, Code, Reason} ->
+            Response = #response{status = ?STATUS_ERR,
+                                 error_code = Code,
+                                 info = Reason,
+                                 id = 2},
+            gen_tcp:send(Socket, my_packet:encode(Response)),
+            gen_tcp:close(Socket),
+            {stop, normal, StateData}
+    end.
+
+normal(#request{id = Id, info = Info, command = Command} = Request,
+       #state{socket = Socket,
+              handler = Handler,
+              packet = Packet,
+              handler_state = HandlerState} = StateData) ->
+    ?DEBUG("Received: ~p~n", [Request]),
+    FullPacket = <<Packet/binary, Info/binary>>,
+    ParsedRequest = case StateData#state.parse_query andalso
+                 Command =:= ?COM_QUERY of
+        false ->
+            Request#request{info = FullPacket};
+        true ->
+            case mysql_proto:parse(FullPacket) of
+                {fail,Expected} ->
+                    ?ERROR_MSG("SQL invalid: ~p~n", [Expected]),
+                    Request#request{info = FullPacket};
+                {_, Extra, Where} ->
+                    ?ERROR_MSG("SQL error: ~p ~p~n", [Extra, Where]),
+                    Request#request{info = FullPacket};
+                Parsed ->
+                    Request#request{info = Parsed}
             end
-    end;
-
-handle_info({tcp, _Port, Msg},
-             normal,
-             #state{socket = Socket,
-                    handler = Handler,
-                    packet = Packet,
-                    msg = PrevMsg,
-                    handler_state = HandlerState} = StateData) ->
-    Msg2 = <<PrevMsg/binary, Msg/binary>>,
-    case my_packet:decode(Msg2) of
-        {ok, #request{continue = true, info = Info} = Request, <<>>} ->
-            ?DEBUG("Received (partial): ~p~n", [Request]),
+    end,
+    NewStateData = StateData#state{packet = <<>>},
+    case Handler:execute(ParsedRequest, HandlerState) of
+        {noreply, NewHandlerState} ->
             {next_state,
              normal,
-             StateData#state{packet = <<Packet/binary, Info/binary>>}};
-        {more, _NumBytes} ->
-            ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
-            {next_state, normal, StateData#state{msg = Msg2}};
-        {ok, #request{continue = false,
-                      id = Id,
-                      info = Info,
-                      command = Command} = Request, <<>>} ->
-            ?DEBUG("Received: ~p~n", [Request]),
-            FullPacket = <<Packet/binary, Info/binary>>,
-            Query = case StateData#state.parse_query andalso
-                         Command =:= ?COM_QUERY of
-                false ->
-                    Request#request{info = FullPacket};
-                true ->
-                    case mysql_proto:parse(FullPacket) of
-                        {fail,Expected} ->
-                            ?ERROR_MSG("SQL invalid: ~p~n", [Expected]),
-                            Request#request{info = FullPacket};
-                        {_, Extra, Where} ->
-                            ?ERROR_MSG("SQL error: ~p ~p~n", [Extra, Where]),
-                            Request#request{info = FullPacket};
-                        Parsed ->
-                            Request#request{info = Parsed}
-                    end
-            end,
-            NewStateData = StateData#state{packet = <<"">>},
-            case Handler:execute(Query, HandlerState) of
-                {noreply, NewHandlerState} ->
-                    {next_state,
-                     normal,
-                     NewStateData#state{handler_state = NewHandlerState}};
-                {reply, Response, NewHandlerState} ->
-                    gen_tcp:send(Socket, my_packet:encode(
-                        Response#response{id = Id+1}
-                    )),
-                    {next_state,
-                     normal,
-                     NewStateData#state{handler_state = NewHandlerState}};
-                {stop, Reason, NewHandlerState} ->
-                    {stop,
-                     Reason,
-                     NewStateData#state{handler_state = NewHandlerState}}
-            end
-    end;
+             NewStateData#state{handler_state = NewHandlerState}};
+        {reply, Response, NewHandlerState} ->
+            gen_tcp:send(Socket, my_packet:encode(
+                Response#response{id = Id + 1}
+            )),
+            {next_state,
+             normal,
+             NewStateData#state{handler_state = NewHandlerState}};
+        {stop, Reason, NewHandlerState} ->
+            {stop,
+             Reason,
+             NewStateData#state{handler_state = NewHandlerState}}
+    end.
+
+handle_info({tcp, _Port, Msg}, auth, #state{msg = PrevMsg} = StateData) ->
+    Msg2 = <<PrevMsg/binary, Msg/binary>>,
+    process_packet(my_packet:decode_auth(Msg2));
 
 handle_info({tcp_closed, _Socket}, _StateName, #state{id = Id} = StateData) ->
     ?INFO_MSG("Connection ID#~w closed~n", [Id]),
@@ -211,3 +201,22 @@ terminate(Reason, _StateName, #state{handler = Handler,
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
     {ok, StateName, StateData}.
+
+
+process_packet(_, {ok, #request{continue = true, info = Info} = Request, <<>>},
+               _StateName, StateData) ->
+    ?DEBUG("Received (partial): ~p~n", [Request]),
+    Packet = StateData#state.packet,
+    {next_state,
+     normal,
+     StateData#state{packet = <<Packet/binary, Info/binary>>}};
+
+process_packet(Msg, {more, _NumBytes}, _StateName, StateData) ->
+    ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
+    {next_state, normal, StateData#state{msg = Msg}};
+
+process_packet(_Msg, {ok, #request{} = Request, <<>>}, normal, StateData) ->
+    normal(Request, StateData);
+
+process_packet(_Msg, {ok, #request{} = Request, <<>>}, auth, StateData) ->
+    auth(Request, StateData).
