@@ -1,7 +1,8 @@
 -define(SERVER_SIGN, <<"5.5-myproto">>).
 
 -ifdef(TEST).
--define(DEBUG, ?debugFmt).
+-include_lib("eunit/include/eunit.hrl").
+-define(DEBUG, fun(A,B) -> ?debugFmt(A,B) end).
 -else.
 -define(DEBUG, fun(_,_) -> ok end).
 -endif.

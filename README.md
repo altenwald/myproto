@@ -44,47 +44,16 @@ A dummy test
 This is a little tutorial to show you the use of this library. As a little introduction, you can create your environment as follow:
 
 ```shell
-mkdir -p mydummy/apps/mydummy
-cd mydummy/apps/mydummy
-rebar create template=simpleapp appid=mydummy
-cd ../..
-
-mkdir rel
-cd rel
-rebar create template=simplenode nodeid=mydummy
-cd ..
+rebar3 new release name=mydummy
+cd mydummy
 ```
 
-Create the file rebar.config as follow:
+Add the dependency to the `rebar.config` file:
 
 ```erlang
-{sub_dirs, ["apps/*", "rel"]}.
 {deps, [
-  {myproto, ".*", {git, "git://github.com/altenwald/myproto.git", master}}
+  {myproto, {git, "git://github.com/altenwald/myproto.git", {branch, master}}}
 ]}.
-```
-
-Modify the file `rel/files/sys.config` as:
-
-```erlang
-[
- {myproto, [
-    {handler, mydummy},
-    {parse_query, true},
-    {server_sign, <<"5.5-myproto">>},
-    {default_storage_engine, <<"myproto">>},
-    {port, 3306}
- ]},
- 
- %% SASL config
- {sasl, [
-    {sasl_error_logger, {file, "log/sasl-error.log"}},
-    {errlog_type, error},
-    {error_logger_mf_dir, "log/sasl"},      % Log directory
-    {error_logger_mf_maxbytes, 10485760},   % 10 MB max file size
-    {error_logger_mf_maxfiles, 5}           % 5 files max
- ]}
-].
 ```
 
 Now, you can create the `apps/mydummy/src/mydummy.erl` module:
@@ -95,15 +64,15 @@ Now, you can create the `apps/mydummy/src/mydummy.erl` module:
 
 -include_lib("myproto/include/myproto.hrl").
 
--export([check_pass/3, metadata/2, execute/2, terminate/2]).
+-export([check_pass/1, metadata/2, execute/2, terminate/2]).
 
 -record(my, {
     db
 }).
 
-check_pass(User, Hash, _Password) ->
+check_pass(#user{user=User, server_hash=Hash, password=Password}) ->
     case my_request:check_clean_pass(User, Hash) of
-        HashedPassword -> {ok, HashedPassword, #my{}};
+        Password -> {ok, Password, #my{}};
         _ -> {error, <<"Password incorrect!">>}
     end.
 
@@ -127,7 +96,7 @@ metadata(_, #my{} = State) ->
     {noreply, State}.
 
 
-execute(#request{info = 
+execute(#request{info =
             #select{params=[#variable{name = <<"version_comment">>}]
         }}, State) ->
     Info = {
@@ -167,35 +136,16 @@ Please, mention that dummy module must implement metadata callback, because usua
 
 For example, mysql has three different protocols for querying table structure. myproto hides this stuff from you in a very simple and convenient way.
 
-Add this to `rel/reltool.config`:
-
-```erlang
-{sys,
-    {lib_dirs, ["../apps", "../deps"]},
-    {erts, [{mod_cond, derived}, {app_file, strip}]},
-    {app_file, strip},
-    {rel, "mydummy", "1", [
-        kernel,
-        stdlib,
-        sasl,
-        inets,
-        lager,
-        myproto,
-        mydummy
-    ]},
-    ...
-```
-
 Now time to build:
 
 ```shell
-rebar get-deps compile generate
+rebar3 compile
 ```
 
 And time to launch:
 
 ```shell
-rel/mydummy/bin/mydummy console
+rebar3 shell
 ```
 
 Now, to test, in another terminal or shell:
