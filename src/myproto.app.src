@@ -6,10 +6,11 @@
         kernel,
         stdlib
     ]},
-    {mod, {myproto, []}},
+    {mod, {myproto_app, []}},
     {env, [
         {port, 3306},
         {server_sign, <<"5.5-myproto">>},
+        {parse_query, true},
         {default_storage_engine, <<"myproto">>},
         {handler, my_dummy_handler}
     ]}

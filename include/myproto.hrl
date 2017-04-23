@@ -1,5 +1,15 @@
 -define(SERVER_SIGN, <<"5.5-myproto">>).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-define(DEBUG, fun(A,B) -> ?debugFmt(A,B) end).
+-else.
+-define(DEBUG, fun(_,_) -> ok end).
+-endif.
+
+-define(INFO_MSG, error_logger:info_msg).
+-define(ERROR_MSG, error_logger:error_msg).
+
 %% status flags
 -define(SERVER_STATUS_IN_TRANS, 16#0001).
 -define(SERVER_STATUS_AUTOCOMMIT, 16#0002).
@@ -13,6 +23,8 @@
 -define(SERVER_STATUS_METADATA_CHANGED, 16#0400).
 -define(SERVER_QUERY_WAS_SLOW, 16#0800).
 -define(SERVER_PS_OUT_PARAMS, 16#1000).
+
+-type my_server_status() :: pos_integer().
 
 % commands
 -define(COM_SLEEP, 0).
@@ -48,11 +60,15 @@
 -define(COM_BINLOG_DUMP_GTID, 30).
 -define(COM_AUTH, auth).
 
+-type my_command() :: non_neg_integer() | auth.
+
 % response status
 -define(STATUS_OK, 0).
 -define(STATUS_HELLO, 16#0A).
 -define(STATUS_EOF, 16#FE).
 -define(STATUS_ERR, 16#FF).
+
+-type my_status() :: non_neg_integer().
 
 % data types
 -define(TYPE_DECIMAL, 0).
@@ -83,6 +99,8 @@
 -define(TYPE_STRING, 16#fe).
 -define(TYPE_GEOMETRY, 16#ff).
 
+-type my_type() :: non_neg_integer().
+
 % charsets
 -define(BIG5_CHINESE_CI, 1).
 -define(LATIN2_CZECH_CS, 2).
@@ -96,6 +114,8 @@
 -define(SWE7_SWEDISH_CI, 10).
 -define(UTF8_GENERAL_CI, 33).
 -define(BINARY, 63).
+
+-type my_charset() :: non_neg_integer().
 
 % capabilities
 -define(CLIENT_LONG_PASSWORD, 1).
@@ -121,58 +141,60 @@
 -define(CLIENT_CONNECT_ATTRS, 16#100000).
 -define(CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA, 16#200000).
 
+-type my_capabilities() :: non_neg_integer().
+
 -define(DATA_NULL, (<<16#fb>>)).
 
 -include("sql.hrl").
 
 -record(user, {
-	name :: binary(),
-	password :: binary(),
-	capabilities :: integer(),
-	plugin :: binary(),
-	charset :: binary(),
-	database :: binary(),
-	server_hash :: binary()
+    name :: user_string(),
+    password :: password(),
+    capabilities :: my_capabilities(),
+    plugin :: binary(),
+    charset :: my_charset(),
+    database :: binary(),
+    server_hash :: hash()
 }).
 
 -type user() :: #user{}.
 
 -record(request, {
-	command :: integer(),
-	info :: binary() | sql() | user(),
-	text :: binary(),
-	continue = false :: boolean(),
-	id = 0 :: integer()
+    command :: my_command(),
+    info :: binary() | sql() | user(),
+    text :: binary(),
+    continue = false :: boolean(),
+    id = 0 :: non_neg_integer()
 }).
 
 -type request() :: #request{}.
 
 -record(response, {
-	status = 0 :: integer(),
-	id = 0 :: integer(),
-	affected_rows = 0 :: integer(), %% as var_integer
-	last_insert_id = 0 :: integer(), %% as var_integer
-	status_flags = 0 :: integer(),
-	warnings = 0 :: integer(), %% only with protocol 4.1
-	info = <<>> :: binary(),
-	error_code = 0 :: integer(),
-	error_info = <<>> :: binary()
+    status = 0 :: my_status(),
+    id = 0 :: non_neg_integer(),
+    affected_rows = 0 :: non_neg_integer(), %% as var_integer
+    last_insert_id = 0 :: non_neg_integer(), %% as var_integer
+    status_flags = 0 :: my_server_status(),
+    warnings = 0 :: non_neg_integer(), %% only with protocol 4.1
+    info = <<>> :: binary(),
+    error_code = 0 :: non_neg_integer(),
+    error_info = <<>> :: binary()
 }).
 
 -type response() :: #response{}.
 
 -record(column, {
-	schema = <<>> :: binary(),
-	table = <<>> :: binary(),
-	org_name = <<>> :: binary(),
-	org_table = <<>> :: binary(),
-	name :: binary(),
-	charset = ?UTF8_GENERAL_CI :: integer(),
-	length :: integer(),
-	type :: integer(),
-	flags = 0 :: integer(),
-	decimals = 0 :: integer(),
-	default = <<>> :: ( binary() | integer() )
+    schema = <<>> :: binary(),
+    table = <<>> :: binary(),
+    org_name = <<>> :: binary(),
+    org_table = <<>> :: binary(),
+    name :: binary(),
+    charset = ?UTF8_GENERAL_CI :: my_charset(),
+    length :: non_neg_integer(),
+    type :: my_type(),
+    flags = 0 :: non_neg_integer(),
+    decimals = 0 :: non_neg_integer(),
+    default = <<>> :: ( binary() | integer() )
 }).
 
 -type column() :: #column{}.
@@ -182,3 +204,6 @@
 -type hash() :: binary().
 
 -type state() :: term().
+
+-type reason() :: any().
+-type code() :: integer().
