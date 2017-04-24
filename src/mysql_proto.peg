@@ -567,5 +567,6 @@ space <- [ \t\n\s\r]* ~;
 null <- [nN] [uU] [lL] [lL] `null`;
 
 `
--include("../include/sql.hrl").
+-include("sql.hrl").
+%% @hidden
 `

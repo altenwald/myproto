@@ -50,19 +50,19 @@ If you want to use, only add this in rebar.config:
 
 ### <a name="Configuration">Configuration</a> ###
 
-For configuration you can check [configure and running](http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/config.md) entry.
+For configuration you can check [configure and running](doc/config.md) entry.
 
 
 ## Modules ##
 
 
 <table width="100%" border="0" summary="list of modules">
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/gen_myproto.md" class="module">gen_myproto</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/my_acceptor.md" class="module">my_acceptor</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/my_datatypes.md" class="module">my_datatypes</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/my_dummy_handler.md" class="module">my_dummy_handler</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/my_packet.md" class="module">my_packet</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/my_request.md" class="module">my_request</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/my_response.md" class="module">my_response</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/simply-and-rebar3/doc/myproto_app.md" class="module">myproto_app</a></td></tr></table>
+<tr><td><a href="gen_myproto.md" class="module">gen_myproto</a></td></tr>
+<tr><td><a href="my_acceptor.md" class="module">my_acceptor</a></td></tr>
+<tr><td><a href="my_datatypes.md" class="module">my_datatypes</a></td></tr>
+<tr><td><a href="my_dummy_handler.md" class="module">my_dummy_handler</a></td></tr>
+<tr><td><a href="my_packet.md" class="module">my_packet</a></td></tr>
+<tr><td><a href="my_request.md" class="module">my_request</a></td></tr>
+<tr><td><a href="my_response.md" class="module">my_response</a></td></tr>
+<tr><td><a href="myproto_app.md" class="module">myproto_app</a></td></tr></table>
 
