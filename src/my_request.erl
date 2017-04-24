@@ -97,7 +97,7 @@ init([Socket, Id, Handler, ParseQuery]) ->
         status = ?STATUS_HELLO,
         info = Hash
     },
-    gen_tcp:send(Socket, my_packet:encode(Hello)),
+    ok = my_response:send_or_reply(Hello, Socket),
     {ok, auth, #state{
         socket = Socket,
         id = Id,
@@ -113,14 +113,14 @@ auth(#request{info = #user{password = Password} = User},
             Response = #response{status = ?STATUS_OK,
                                  status_flags = ?SERVER_STATUS_AUTOCOMMIT,
                                  id = 2},
-            gen_tcp:send(Socket, my_packet:encode(Response)),
+            ok = my_response:send_or_reply(Response, Socket),
             {next_state, normal, StateData#state{handler_state = HandlerState}};
         {error, Reason} ->
             Response = #response{status = ?STATUS_ERR,
-                                 error_code = 1045,
+                                 error_code = 1047,
                                  info = Reason,
                                  id = 2},
-            gen_tcp:send(Socket, my_packet:encode(Response)),
+            ok = my_response:send_or_reply(Response, Socket),
             gen_tcp:close(Socket),
             {stop, normal, StateData};
         {error, Code, Reason} ->
@@ -128,7 +128,16 @@ auth(#request{info = #user{password = Password} = User},
                                  error_code = Code,
                                  info = Reason,
                                  id = 2},
-            gen_tcp:send(Socket, my_packet:encode(Response)),
+            ok = my_response:send_or_reply(Response, Socket),
+            gen_tcp:close(Socket),
+            {stop, normal, StateData};
+        {error, Code, SQLState, Reason} ->
+            Response = #response{status = ?STATUS_ERR,
+                                 error_code = Code,
+                                 error_info = SQLState,
+                                 info = Reason,
+                                 id = 2},
+            ok = my_response:send_or_reply(Response, Socket),
             gen_tcp:close(Socket),
             {stop, normal, StateData}
     end.
@@ -162,13 +171,22 @@ normal(#request{id = Id, info = Info, command = Command} = Request,
             {next_state,
              normal,
              NewStateData#state{handler_state = NewHandlerState}};
-        {reply, Response, NewHandlerState} ->
-            gen_tcp:send(Socket, my_packet:encode(
-                Response#response{id = Id + 1}
-            )),
+        {reply, #response{} = Response, NewHandlerState} ->
+            ok = my_response:send_or_reply(Response#response{id = Id + 1},
+                                           Socket),
             {next_state,
              normal,
              NewStateData#state{handler_state = NewHandlerState}};
+        {reply, default, NewHandlerState} ->
+            {reply, Response, ModHandlerState} =
+                my_response:default_reply(ParsedRequest, Handler,
+                                          NewHandlerState),
+            error_logger:info_msg("default reply: ~p~n", [Response]),
+            ok = my_response:send_or_reply(Response#response{id = Id + 1},
+                                           Socket),
+            {next_state,
+             normal,
+             NewStateData#state{handler_state = ModHandlerState}};
         {stop, Reason, NewHandlerState} ->
             {stop,
              Reason,

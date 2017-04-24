@@ -16,9 +16,9 @@
     metadata/2
 ]).
 
--define(ERR_WRONG_PASS, {error, <<"Password incorrect!">>}).
--define(ERR_WRONG_USER, {error, <<"No such user!">>}).
--define(ERR_LOGIN_DISABLED, {error, <<"Login disabled">>}).
+-define(ERR_WRONG_PASS, {error, 1045, <<"42000">>, <<"Password incorrect!">>}).
+-define(ERR_WRONG_USER, {error, 1045, <<"42000">>, <<"No such user!">>}).
+-define(ERR_LOGIN_DISABLED, {error, 1289, <<"28000">>, <<"Login disabled">>}).
 -define(ERR_INFO(Code, Desc),
         #response{status = ?STATUS_ERR, error_code = Code, info = Desc}).
 
@@ -39,15 +39,21 @@ stop_server(PID) ->
     myproto:stop(PID).
 
 
-check_pass(#user{name = <<"user">>, password = Pass} = _User) ->
+check_pass(#user{name = <<"user">>, password = Pass}) ->
     {ok, Pass, #my{}};
+
+check_pass(#user{name = <<"user",_/binary>>}) ->
+    ?ERR_WRONG_USER;
+
+check_pass(#user{name = <<"hack">>}) ->
+    ?ERR_LOGIN_DISABLED;
 
 check_pass(_) ->
     ?ERR_WRONG_PASS.
 
 
 metadata(version, State) ->
-    {reply, <<"5.6.0">>, State};
+    {reply, <<"5.6.0-test">>, State};
 
 metadata({connect_db, <<"test_db">>}, State) ->
     {noreply, State};
@@ -66,7 +72,7 @@ metadata(_, State) ->
 
 
 tables() ->
-    <<"test">>.
+    [<<"test">>].
 table_columns(<<"test">>) ->
     [{id, string},
      {name, string},

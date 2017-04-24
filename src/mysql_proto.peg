@@ -1,3 +1,5 @@
+%-author('Manuel Rubio <manuel@altenwald.com>').
+
 sql <- set_query / select_query / update_query / insert_query / delete_query / show_query / desc_query / use_query /
     transaction_query / account_management_query ~;
 

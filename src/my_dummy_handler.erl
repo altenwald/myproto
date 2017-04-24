@@ -11,7 +11,7 @@
 check_pass(#user{name = User, server_hash = Hash, password = Password}) ->
     case my_request:check_clean_pass(User, Hash) of
         Password -> {ok, Password, []};
-        _ -> {error, <<"Password incorrect!">>}
+        _ -> {error, <<"42000">>, <<"Password incorrect!">>}
     end.
 
 

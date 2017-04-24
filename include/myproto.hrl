@@ -207,3 +207,4 @@
 
 -type reason() :: any().
 -type code() :: integer().
+-type sqlstate() :: binary().

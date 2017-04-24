@@ -11,7 +11,13 @@ clean:
 	rm -rf _build
 
 test:
-	${REBAR} eunit skip_deps=true
-	./covertool -cover myproto.coverdata -appname myproto -output cobertura.xml
+	${REBAR} as test do xref, eunit, cover
+	./covertool \
+		-cover myproto.coverdata \
+		-appname myproto \
+		-output cobertura.xml
 
-.PHONY: test compile clean all
+shell:
+	${REBAR} shell
+
+.PHONY: test compile clean all shell

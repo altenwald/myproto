@@ -18,18 +18,21 @@
     parse_query :: boolean()      %% if the query will be parsed or not
 }).
 
+
 start_link(Port, Handler, ParseQuery) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE,
                           [Port, Handler, ParseQuery], []).
 
+
 stop() ->
     gen_server:call(?MODULE, stop).
 
+
 init([Port, Handler, ParseQuery]) ->
     Opts = [binary, {packet, 0}, {active, true}, {reuseaddr, true}],
-    ?DEBUG("Listening in port ~p~n", [Port]),
     case gen_tcp:listen(Port, Opts) of
         {ok, LSocket} ->
+            ?DEBUG("Listening in port ~p~n", [inet:port(LSocket)]),
             {ok, #state{lsocket=LSocket,
                         handler=Handler,
                         parse_query=ParseQuery}, 0};
@@ -37,11 +40,17 @@ init([Port, Handler, ParseQuery]) ->
             {stop, Reason}
     end.
 
+
+handle_call(port, _From, #state{lsocket = LSocket} = State) ->
+    {reply, inet:port(LSocket), State, 0};
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
+
 handle_cast(_Msg, State) ->
     {noreply, State}.
+
 
 handle_info(timeout, State = #state{lsocket = LSocket,
                                     id = Id,
@@ -59,10 +68,12 @@ handle_info(timeout, State = #state{lsocket = LSocket,
             {noreply, State, 0}
     end.
 
+
 terminate(_Reason, State) ->
     ?INFO_MSG("closing ~p~n", [State#state.id]),
     ok = gen_tcp:close(State#state.lsocket),
     ok.
+
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

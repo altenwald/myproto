@@ -136,6 +136,8 @@ encode(#response{status = ?STATUS_HELLO, id = Id, info = Hash}) ->
         ?CLIENT_PLUGIN_AUTH bor %% PLAIN AUTH
         ?CLIENT_PROTOCOL_41 bor %% PROTOCOL 4.1
         ?CLIENT_SECURE_CONNECTION bor %% for mysql_native_password
+        ?CLIENT_TRANSACTIONS bor
+        ?CLIENT_CONNECT_WITH_DB bor
         0,
     <<CapsLow:16/little, CapsUp:16/little>> = <<Caps:32/little>>,
     <<Auth1:8/binary, Auth2/binary>> = Hash,
