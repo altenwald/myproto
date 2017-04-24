@@ -13,7 +13,7 @@ clean:
 test:
 	${REBAR} as test do xref, eunit, cover
 	./covertool \
-		-cover myproto.coverdata \
+		-cover _build/test/cover/eunit.coverdata \
 		-appname myproto \
 		-output cobertura.xml
 
