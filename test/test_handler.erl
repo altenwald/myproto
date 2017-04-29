@@ -73,6 +73,8 @@ metadata(_, State) ->
 
 tables() ->
     [<<"test">>].
+
+
 table_columns(<<"test">>) ->
     [{id, string},
      {name, string},
@@ -92,6 +94,9 @@ execute(#request{info = #select{tables = [#table{name = Table}]} = _Select},
     Response = { response_columns(ResponseColumns),
                  [response_row(Row, Columns) || Row <- Rows] },
     {reply, #response{status=?STATUS_OK, info = Response}, State};
+
+execute(#request{info = #update{}} = _Request, #my{} = State) ->
+    {reply, #response{status=?STATUS_OK, info = <<>>}, State};
 
 execute(#request{} = _Request, #my{} = State) ->
     {reply, default, State}.

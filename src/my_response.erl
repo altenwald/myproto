@@ -310,6 +310,9 @@ default_reply(#request{command = field_list, info = Table}, Handler, State) ->
     {reply, #response{status = ?STATUS_OK, info = {Reply}}, State1};
 
 default_reply(#request{command = ping}, _Handler, State) ->
+    {reply, #response{status = ?STATUS_OK, id = 1}, State};
+
+default_reply(#request{command = ?COM_QUIT}, _Handler, State) ->
     {reply, #response{status = ?STATUS_OK, id = 1}, State}.
 
 

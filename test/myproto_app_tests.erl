@@ -77,10 +77,40 @@ query_test_() ->
         fun start_query/0,
         fun stop_query/1,
         [
-            fun query_version/1
+            fun query_version/1,
+            fun query_show_databases/1,
+            fun query_show_tables/1,
+            fun query_describe/1,
+            fun query_select/1,
+            fun query_update/1
         ]
     }.
 
 query_version({Pid, _Port}) ->
     {ok, _Columns, Rows} = mysql:query(Pid, <<"SELECT @@version_comment">>),
-    ?_assertEqual(Rows, [[?TEST_VERSION]]).
+    ?_assertEqual([[?TEST_VERSION]], Rows).
+
+query_show_databases({Pid, _Port}) ->
+    {ok, _Columns, Rows} = mysql:query(Pid, <<"SHOW DATABASES">>),
+    ?_assertEqual([[<<"test_db">>]], Rows).
+
+query_show_tables({Pid, _Port}) ->
+    {ok, _Columns, Rows} = mysql:query(Pid, <<"SHOW TABLES">>),
+    ?_assertEqual([[<<"test">>]], Rows).
+
+query_describe({Pid, _Port}) ->
+    {ok, _Columns, Rows} = mysql:query(Pid, <<"DESC test">>),
+    ?_assertEqual([
+        [<<"id">>,<<"varchar(255)">>,<<"YES">>,<<>>,null,<<>>],
+        [<<"name">>,<<"varchar(255)">>,<<"YES">>,<<>>,null,<<>>],
+        [<<"url">>,<<"varchar(255)">>,<<"YES">>,<<>>,null,<<>>]
+    ], Rows).
+
+query_select({Pid, _Port}) ->
+    {ok, _Columns, Rows} = mysql:query(Pid, <<"SELECT * FROM test">>),
+    ?_assertEqual([[<<"1">>,<<"stream1">>,<<"rtsp://...">>]], Rows).
+
+query_update({Pid, _Port}) ->
+    ?_test(begin
+        ok = mysql:query(Pid, <<"UPDATE test SET a = 1">>)
+    end).
