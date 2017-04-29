@@ -1,0 +1,47 @@
+@author "Manuel Rubio" <manuel@altenwald.com>
+@copyright 2013-2017 Altenwald Solutions, S.L.
+@title myproto
+
+@doc
+<a href="https://travis-ci.org/altenwald/myproto"><img src="https://img.shields.io/travis/altenwald/myproto/master.svg" alt="Build Status"/></a>
+<a href='https://codecov.io/gh/altenwald/myproto'><img src='https://img.shields.io/codecov/c/github/altenwald/myproto.svg' alt='Codecov' /></a>
+<a href='https://raw.githubusercontent.com/altenwald/myproto/master/COPYING'><img src='https://img.shields.io/github/license/altenwald/myproto.svg' alt='License: EPL 1.1'/></a>
+
+MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
+
+== Requirements ==
+
+The system for tests use maps so, you have to use Erlang OTP 17+:
+
+| Erlang Version | Support | Notes |
+|:---|:---:|:---|
+| 19.2 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 19.1 | :heavy_check_mark: | |
+| 19.0 | :heavy_check_mark: | |
+| 18.3 | :heavy_check_mark: | Recommended if you use OTP 18 |
+| 18.2.1 | :heavy_check_mark: | |
+| 18.2 | :heavy_check_mark: | |
+| 18.1 | :heavy_check_mark: | |
+| 18.0 | :heavy_check_mark: | |
+| 17.5 | :heavy_check_mark: | Recommended if you use OTP 17 |
+| 17.4 | :heavy_check_mark: | |
+| 17.3 | :x: | fail in SSL |
+| 17.2 | :x: | no tests available in Travis-CI |
+| 17.1 | :heavy_check_mark: | |
+| 17.0 | :heavy_check_mark: | |
+
+
+== Usage ==
+
+If you want to use, only add this in rebar.config:
+
+<pre lang="erlang">
+  {deps, [
+      {myproto, ".*", {git, "git://github.com/altenwald/myproto.git", master}}
+  ]}.
+</pre>
+
+== Configuration ==
+
+For configuration you can check <a href="doc/config.md">configure and running</a> entry.
+

@@ -4,12 +4,14 @@
     {registered, []},
     {applications, [
         kernel,
-        stdlib
+        stdlib,
+        sqlparser
     ]},
-    {mod, {myproto, []}},
+    {mod, {myproto_app, []}},
     {env, [
         {port, 3306},
-        {server_sign, <<"5.5-myproto">>},
+        {server_sign, <<"5.6.0-myproto">>},
+        {parse_query, true},
         {default_storage_engine, <<"myproto">>},
         {handler, my_dummy_handler}
     ]}

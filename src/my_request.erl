@@ -1,16 +1,32 @@
 -module(my_request).
 -author('Manuel Rubio <manuel@altenwald.com>').
- 
+
 -behaviour(gen_fsm).
- 
+
 -define(SERVER, ?MODULE).
 
 -include("myproto.hrl").
- 
--export([start/4, check_clean_pass/2, check_sha1_pass/2, sha1_hex/1, to_hex/1]).
--export([init/1, handle_sync_event/4, handle_event/3, handle_info/3,
-         terminate/3, code_change/4]).
- 
+
+-export([
+    start/4,
+    check_clean_pass/2,
+    check_sha1_pass/2,
+    sha1_hex/1,
+    to_hex/1,
+
+    % states
+    auth/2,
+    normal/2,
+
+    % FSM callbacks
+    init/1,
+    handle_sync_event/4,
+    handle_event/3,
+    handle_info/3,
+    terminate/3,
+    code_change/4
+]).
+
 -record(state, {
     socket  :: gen_tcp:socket(),       %% TCP connection
     id      :: integer(),              %% connection id
@@ -24,12 +40,10 @@
 
 %% API
 
--spec start(
-    Socket::gen_tcp:socket(),
-    Id::integer(), 
-    Handler::atom(),
-    ParseQuery::boolean()
-) -> {ok, pid()}.
+-spec start(Socket :: gen_tcp:socket(),
+            Id :: pos_integer(),
+            Handler :: atom(),
+            ParseQuery :: boolean()) -> {ok, pid()}.
 
 start(Socket, Id, Handler, ParseQuery) ->
     {ok, Pid} = gen_fsm:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
@@ -72,123 +86,159 @@ check_clean_pass(Pass, Salt) ->
 init([Socket, Id, Handler, ParseQuery]) ->
     Hash = list_to_binary(
         lists:map(fun
-            (0) -> 1; 
-            (X) -> X 
+            (0) -> 1;
+            (X) -> X
         end, binary_to_list(
-            crypto:rand_bytes(20)
+            crypto:strong_rand_bytes(20)
         ))
     ),
     Hello = #response{
-        id=Id, 
-        status=?STATUS_HELLO, 
-        info=Hash
+        id = Id,
+        status = ?STATUS_HELLO,
+        info = Hash
     },
-    gen_tcp:send(Socket, my_packet:encode(Hello)),
+    ok = my_response:send_or_reply(Hello, Socket),
     {ok, auth, #state{
-        socket=Socket,
-        id=Id,
-        hash=Hash,
-        handler=Handler,
-        parse_query=ParseQuery}}.
+        socket = Socket,
+        id = Id,
+        hash = Hash,
+        handler = Handler,
+        parse_query = ParseQuery}}.
 
-handle_info({tcp,_Port, Info}, auth,
-        #state{hash=Hash,socket=Socket,handler=Handler}=StateData) ->
-    {ok, #request{info=#user{
-        name=User, password=Password
-    }}, <<>>} = my_packet:decode_auth(Info),
-    lager:debug("Hash=~p; Pass=~p~n", [to_hex(Hash),to_hex(Password)]),
-    case Handler:check_pass(User, Hash, Password) of
+auth(#request{info = #user{password = Password} = User},
+     #state{hash = Hash, socket = Socket, handler = Handler} = StateData) ->
+    ?DEBUG("Hash=~p; Pass=~p~n", [to_hex(Hash), to_hex(Password)]),
+    case Handler:check_pass(User#user{server_hash = Hash}) of
         {ok, Password, HandlerState} ->
-            Response = #response{
-                status = ?STATUS_OK,
-                status_flags = ?SERVER_STATUS_AUTOCOMMIT,
-                id = 2
-            },
-            gen_tcp:send(Socket, my_packet:encode(Response)), 
-            {next_state, normal, StateData#state{handler_state=HandlerState}};
+            Response = #response{status = ?STATUS_OK,
+                                 status_flags = ?SERVER_STATUS_AUTOCOMMIT,
+                                 id = 2},
+            ok = my_response:send_or_reply(Response, Socket),
+            {next_state, normal, StateData#state{handler_state = HandlerState}};
         {error, Reason} ->
-            Response = #response{
-                status = ?STATUS_ERR,
-                error_code = 1045,
-                info = Reason,
-                id = 2
-            },
-            gen_tcp:send(Socket, my_packet:encode(Response)),
+            Response = #response{status = ?STATUS_ERR,
+                                 error_code = 1047,
+                                 info = Reason,
+                                 id = 2},
+            ok = my_response:send_or_reply(Response, Socket),
             gen_tcp:close(Socket),
             {stop, normal, StateData};
         {error, Code, Reason} ->
-            Response = #response{
-                status = ?STATUS_ERR,
-                error_code = Code,
-                info = Reason,
-                id = 2
-            },
-            gen_tcp:send(Socket, my_packet:encode(Response)),
+            Response = #response{status = ?STATUS_ERR,
+                                 error_code = Code,
+                                 info = Reason,
+                                 id = 2},
+            ok = my_response:send_or_reply(Response, Socket),
+            gen_tcp:close(Socket),
+            {stop, normal, StateData};
+        {error, Code, SQLState, Reason} ->
+            Response = #response{status = ?STATUS_ERR,
+                                 error_code = Code,
+                                 error_info = SQLState,
+                                 info = Reason,
+                                 id = 2},
+            ok = my_response:send_or_reply(Response, Socket),
             gen_tcp:close(Socket),
             {stop, normal, StateData}
-    end;
+    end.
 
-handle_info({tcp,_Port,Msg}, normal,
-        #state{socket=Socket,handler=Handler,packet=Packet,
-            msg=PrevMsg,
-            handler_state=HandlerState}=StateData) ->
-    Msg2 = <<PrevMsg/binary, Msg/binary>>,
-    case my_packet:decode(Msg2) of
-        {ok, #request{continue=true, info=Info}=Request, <<>>} ->
-            lager:debug("Received (partial): ~p~n", [Request]),
-            {next_state, normal, StateData#state{packet = <<Packet/binary, Info/binary>>}};
-        {more, _NumBytes} ->
-            lager:debug("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
-            {next_state, normal, StateData#state{msg = Msg2}};
-        {ok, #request{continue=false, id=Id, info=Info, command=Command}=Request, <<>>} ->
-            lager:debug("Received: ~p~n", [Request]),
-            FullPacket = <<Packet/binary, Info/binary>>,
-            Query = case StateData#state.parse_query andalso Command =:= ?COM_QUERY of 
-                false -> Request#request{info = FullPacket};
-                true -> 
-                    case mysql_proto:parse(FullPacket) of 
-                        {fail,Expected} -> 
-                            lager:error("SQL invalid: ~p~n", [Expected]),
-                            Request#request{info = FullPacket};
-                        {_, Extra, Where} ->
-                            lager:error("SQL error: ~p ~p~n", [Extra, Where]),
-                            Request#request{info = FullPacket};
-                        Parsed ->
-                            Request#request{info = Parsed}
-                    end
-            end,
-            NewStateData = StateData#state{packet = <<"">>},
-            case Handler:execute(Query, HandlerState) of 
-                {noreply, NewHandlerState} ->
-                    {next_state, normal, NewStateData#state{handler_state=NewHandlerState}};
-                {reply, Response, NewHandlerState} ->
-                    gen_tcp:send(Socket, my_packet:encode(
-                        Response#response{id = Id+1}
-                    )),
-                    {next_state, normal, NewStateData#state{handler_state=NewHandlerState}};
-                {stop, Reason, NewHandlerState} ->
-                    {stop, Reason, NewStateData#state{handler_state=NewHandlerState}}
+normal(#request{id = Id, info = Info, command = Command} = Request,
+       #state{socket = Socket,
+              handler = Handler,
+              packet = Packet,
+              handler_state = HandlerState} = StateData) ->
+    ?DEBUG("Received: ~p~n", [Request]),
+    FullPacket = <<Packet/binary, Info/binary>>,
+    ParsedRequest = case StateData#state.parse_query andalso
+                 Command =:= ?COM_QUERY of
+        false ->
+            Request#request{info = FullPacket};
+        true ->
+            case mysql_parser:parse(FullPacket) of
+                {fail,Expected} ->
+                    ?ERROR_MSG("SQL invalid: ~p~n", [Expected]),
+                    Request#request{info = FullPacket};
+                {_, Extra, Where} ->
+                    ?ERROR_MSG("SQL error: ~p ~p~n", [Extra, Where]),
+                    Request#request{info = FullPacket};
+                Parsed ->
+                    Request#request{info = Parsed}
             end
-    end;
+    end,
+    NewStateData = StateData#state{packet = <<>>},
+    case Handler:execute(ParsedRequest, HandlerState) of
+        {noreply, NewHandlerState} ->
+            {next_state,
+             normal,
+             NewStateData#state{handler_state = NewHandlerState}};
+        {reply, #response{} = Response, NewHandlerState} ->
+            ok = my_response:send_or_reply(Response#response{id = Id + 1},
+                                           Socket),
+            {next_state,
+             normal,
+             NewStateData#state{handler_state = NewHandlerState}};
+        {reply, default, NewHandlerState} ->
+            {reply, Response, ModHandlerState} =
+                my_response:default_reply(ParsedRequest, Handler,
+                                          NewHandlerState),
+            error_logger:info_msg("default reply: ~p~n", [Response]),
+            ok = my_response:send_or_reply(Response#response{id = Id + 1},
+                                           Socket),
+            {next_state,
+             normal,
+             NewStateData#state{handler_state = ModHandlerState}};
+        {stop, Reason, NewHandlerState} ->
+            {stop,
+             Reason,
+             NewStateData#state{handler_state = NewHandlerState}}
+    end.
 
-handle_info({tcp_closed, _Socket}, _StateName, #state{id=Id}=StateData) ->
-    lager:info("Connection ID#~w closed~n", [Id]),
+handle_info({tcp, _Port, Msg}, auth, #state{msg = PrevMsg} = StateData) ->
+    Msg2 = <<PrevMsg/binary, Msg/binary>>,
+    process_packet(Msg2, my_packet:decode_auth(Msg2), auth, StateData);
+
+handle_info({tcp, _Port, Msg}, normal, #state{msg = PrevMsg} = StateData) ->
+    Msg2 = <<PrevMsg/binary, Msg/binary>>,
+    process_packet(Msg2, my_packet:decode(Msg2), normal, StateData);
+
+handle_info({tcp_closed, _Socket}, _StateName, #state{id = Id} = StateData) ->
+    ?INFO_MSG("Connection ID#~w closed~n", [Id]),
     {stop, normal, StateData};
 
-handle_info(Info, _StateName, StateData=#state{socket=Socket}) ->
-    lager:error("unknown message: ~p~n", [Info]),
+handle_info(Info, _StateName, StateData = #state{socket = Socket}) ->
+    ?ERROR_MSG("unknown message: ~p~n", [Info]),
     gen_tcp:close(Socket),
     {stop, normal, StateData}.
- 
+
 handle_event(_Event, StateName, StateData) ->
     {next_state, StateName, StateData}.
 
 handle_sync_event(_Event, _From, StateName, StateData) ->
     {reply, ok, StateName, StateData}.
 
-terminate(Reason, _StateName, #state{handler=Handler,handler_state=HandlerState}) ->
+terminate(Reason, _StateName, #state{handler = Handler,
+                                     handler_state = HandlerState}) ->
     Handler:terminate(Reason, HandlerState),
     ok.
- 
+
 code_change(_OldVsn, StateName, StateData, _Extra) ->
     {ok, StateName, StateData}.
+
+
+process_packet(_, {ok, #request{continue = true, info = Info} = Request, <<>>},
+               _StateName, StateData) ->
+    ?DEBUG("Received (partial): ~p~n", [Request]),
+    Packet = StateData#state.packet,
+    {next_state,
+     normal,
+     StateData#state{packet = <<Packet/binary, Info/binary>>}};
+
+process_packet(Msg, {more, _NumBytes}, _StateName, StateData) ->
+    ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
+    {next_state, normal, StateData#state{msg = Msg}};
+
+process_packet(_Msg, {ok, #request{} = Request, <<>>}, normal, StateData) ->
+    normal(Request, StateData);
+
+process_packet(_Msg, {ok, #request{} = Request, <<>>}, auth, StateData) ->
+    auth(Request, StateData).
