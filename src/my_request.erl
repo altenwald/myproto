@@ -154,7 +154,7 @@ normal(#request{id = Id, info = Info, command = Command} = Request,
         false ->
             Request#request{info = FullPacket};
         true ->
-            case mysql_proto:parse(FullPacket) of
+            case mysql_parser:parse(FullPacket) of
                 {fail,Expected} ->
                     ?ERROR_MSG("SQL invalid: ~p~n", [Expected]),
                     Request#request{info = FullPacket};
