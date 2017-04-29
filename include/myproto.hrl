@@ -145,7 +145,7 @@
 
 -define(DATA_NULL, (<<16#fb>>)).
 
--include("sql.hrl").
+-include_lib("sqlparser/include/sql.hrl").
 
 -record(user, {
     name :: user_string(),

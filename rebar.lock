@@ -1,5 +1,9 @@
 {"1.1.0",
-[{<<"neotoma">>,{pkg,<<"neotoma">>,<<"1.7.3">>},0}]}.
+[{<<"neotoma">>,{pkg,<<"neotoma">>,<<"1.7.3">>},0},
+ {<<"sqlparser">>,
+  {git,"https://github.com/altenwald/sqlparser",
+       {ref,"91ab3520bcd6e5b679712f6c7e480d799c167581"}},
+  0}]}.
 [
 {pkg_hash,[
  {<<"neotoma">>, <<"D8BD5404B73273989946E4F4F6D529E5C2088F5FA1CA790B4DBE81F4BE408E61">>}]}

@@ -2,6 +2,9 @@ REBAR := ./rebar3
 
 all: compile
 
+doc:
+	${REBAR} edown
+
 compile:
 	${REBAR} compile
 
@@ -20,4 +23,4 @@ test:
 shell:
 	${REBAR} shell
 
-.PHONY: test compile clean all shell
+.PHONY: test compile clean all shell doc

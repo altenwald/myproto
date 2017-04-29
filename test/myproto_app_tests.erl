@@ -18,12 +18,14 @@ start_conn() ->
     ok = application:set_env(myproto, handler, test_handler),
     ok = application:set_env(myproto, port, 0),
     ok = application:set_env(myproto, server_sign, ?TEST_VERSION),
+    ok = application:start(sqlparser),
     ok = application:start(myproto),
     {ok, Port} = gen_server:call(my_acceptor, port),
     Port.
 
 stop_conn(_Port) ->
     ok = application:stop(myproto),
+    ok = application:stop(sqlparser),
     ok = application:unload(myproto),
     ok.
 
