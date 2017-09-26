@@ -19,7 +19,9 @@ The system for tests use maps so, you have to use Erlang OTP 17+:
 
 | Erlang Version | Support | Notes |
 |:---|:---:|:---|
-| 19.2 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 20.0 | :heavy_check_mark: | Recommended if you use OTP 20 |
+| 19.3 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 19.2 | :heavy_check_mark: | |
 | 19.1 | :heavy_check_mark: | |
 | 19.0 | :heavy_check_mark: | |
 | 18.3 | :heavy_check_mark: | Recommended if you use OTP 18 |
@@ -60,7 +62,6 @@ For configuration you can check [configure and running](doc/config.md) entry.
 <tr><td><a href="gen_myproto.md" class="module">gen_myproto</a></td></tr>
 <tr><td><a href="my_acceptor.md" class="module">my_acceptor</a></td></tr>
 <tr><td><a href="my_datatypes.md" class="module">my_datatypes</a></td></tr>
-<tr><td><a href="my_dummy_handler.md" class="module">my_dummy_handler</a></td></tr>
 <tr><td><a href="my_packet.md" class="module">my_packet</a></td></tr>
 <tr><td><a href="my_request.md" class="module">my_request</a></td></tr>
 <tr><td><a href="my_response.md" class="module">my_response</a></td></tr>
