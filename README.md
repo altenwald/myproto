@@ -19,7 +19,9 @@ The system for tests use maps so, you have to use Erlang OTP 17+:
 
 | Erlang Version | Support | Notes |
 |:---|:---:|:---|
-| 19.2 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 20.0 | :heavy_check_mark: | Recommended if you use OTP 20 |
+| 19.3 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 19.2 | :heavy_check_mark: | |
 | 19.1 | :heavy_check_mark: | |
 | 19.0 | :heavy_check_mark: | |
 | 18.3 | :heavy_check_mark: | Recommended if you use OTP 18 |
@@ -50,19 +52,18 @@ If you want to use, only add this in rebar.config:
 
 ### <a name="Configuration">Configuration</a> ###
 
-For configuration you can check [configure and running](http://github.com/altenwald/myproto/blob/edown/doc/config.md) entry.
+For configuration you can check [configure and running](http://github.com/altenwald/myproto/blob/master/doc/config.md) entry.
 
 
 ## Modules ##
 
 
 <table width="100%" border="0" summary="list of modules">
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/gen_myproto.md" class="module">gen_myproto</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/my_acceptor.md" class="module">my_acceptor</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/my_datatypes.md" class="module">my_datatypes</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/my_dummy_handler.md" class="module">my_dummy_handler</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/my_packet.md" class="module">my_packet</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/my_request.md" class="module">my_request</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/my_response.md" class="module">my_response</a></td></tr>
-<tr><td><a href="http://github.com/altenwald/myproto/blob/edown/doc/myproto_app.md" class="module">myproto_app</a></td></tr></table>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/gen_myproto.md" class="module">gen_myproto</a></td></tr>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/my_acceptor.md" class="module">my_acceptor</a></td></tr>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/my_datatypes.md" class="module">my_datatypes</a></td></tr>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/my_packet.md" class="module">my_packet</a></td></tr>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/my_request.md" class="module">my_request</a></td></tr>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/my_response.md" class="module">my_response</a></td></tr>
+<tr><td><a href="http://github.com/altenwald/myproto/blob/master/doc/myproto_app.md" class="module">myproto_app</a></td></tr></table>
 

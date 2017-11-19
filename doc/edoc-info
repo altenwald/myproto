@@ -1,4 +1,4 @@
 %% encoding: UTF-8
 {application,myproto}.
-{modules,[gen_myproto,my_acceptor,my_datatypes,my_dummy_handler,my_packet,
-          my_request,my_response,myproto_app]}.
+{modules,[gen_myproto,my_acceptor,my_datatypes,my_packet,my_request,
+          my_response,myproto_app]}.

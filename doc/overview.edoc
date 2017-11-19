@@ -15,7 +15,9 @@ The system for tests use maps so, you have to use Erlang OTP 17+:
 
 | Erlang Version | Support | Notes |
 |:---|:---:|:---|
-| 19.2 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 20.0 | :heavy_check_mark: | Recommended if you use OTP 20 |
+| 19.3 | :heavy_check_mark: | Recommended if you use OTP 19 |
+| 19.2 | :heavy_check_mark: | |
 | 19.1 | :heavy_check_mark: | |
 | 19.0 | :heavy_check_mark: | |
 | 18.3 | :heavy_check_mark: | Recommended if you use OTP 18 |
