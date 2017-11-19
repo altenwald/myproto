@@ -6,6 +6,7 @@
 <a href="https://travis-ci.org/altenwald/myproto"><img src="https://img.shields.io/travis/altenwald/myproto/master.svg" alt="Build Status"/></a>
 <a href='https://codecov.io/gh/altenwald/myproto'><img src='https://img.shields.io/codecov/c/github/altenwald/myproto.svg' alt='Codecov' /></a>
 <a href='https://raw.githubusercontent.com/altenwald/myproto/master/COPYING'><img src='https://img.shields.io/github/license/altenwald/myproto.svg' alt='License: EPL 1.1'/></a>
+<a href='https://hex.pm/packages/sqlparser'><img src='https://img.shields.io/hexpm/v/sqlparser.svg' alt='Hex'/></a>
 
 MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
 
@@ -15,7 +16,6 @@ The system for tests use maps so, you have to use Erlang OTP 17+:
 
 | Erlang Version | Support | Notes |
 |:---|:---:|:---|
-| 20.0 | :heavy_check_mark: | Recommended if you use OTP 20 |
 | 19.3 | :heavy_check_mark: | Recommended if you use OTP 19 |
 | 19.2 | :heavy_check_mark: | |
 | 19.1 | :heavy_check_mark: | |
@@ -39,11 +39,10 @@ If you want to use, only add this in rebar.config:
 
 <pre lang="erlang">
   {deps, [
-      {myproto, ".*", {git, "git://github.com/altenwald/myproto.git", master}}
+      {myproto, "0.3.1"}
   ]}.
 </pre>
 
 == Configuration ==
 
 For configuration you can check <a href="doc/config.md">configure and running</a> entry.
-
