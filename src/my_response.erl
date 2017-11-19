@@ -4,9 +4,9 @@
 -include("myproto.hrl").
 
 -define(SQL_PARAM(Name),
-        #select{params=[#variable{name = Name}]}).
+        #select{params = [#variable{name = Name}]}).
 -define(SQL_PARAM(Name, Scope),
-        #select{params=[#variable{name = Name, scope = Scope}]}).
+        #select{params = [#variable{name = Name, scope = Scope}]}).
 
 -define(COL(Name, Type, Length),
         #column{name = Name, type = Type, length = Length}).

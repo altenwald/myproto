@@ -9,12 +9,11 @@ compile:
 	${REBAR} compile
 
 clean:
-	${REBAR} clean skip_deps=true
-	rm -f src/mysql_proto.erl
+	${REBAR} clean
 	rm -rf _build
 
 test:
-	${REBAR} as test do xref, eunit, cover
+	${REBAR} do xref, eunit, cover
 	./covertool \
 		-cover _build/test/cover/eunit.coverdata \
 		-appname myproto \
