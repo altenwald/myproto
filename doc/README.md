@@ -9,7 +9,7 @@ __Authors:__ "Manuel Rubio" ([`manuel@altenwald.com`](mailto:manuel@altenwald.co
 [![Build Status](https://img.shields.io/travis/altenwald/myproto/master.svg)](https://travis-ci.org/altenwald/myproto)
 [![Codecov](https://img.shields.io/codecov/c/github/altenwald/myproto.svg)](https://codecov.io/gh/altenwald/myproto)
 [![License: EPL 1.1](https://img.shields.io/github/license/altenwald/myproto.svg)](https://raw.githubusercontent.com/altenwald/myproto/master/COPYING)
-[![Hex](https://img.shields.io/hexpm/v/sqlparser.svg)](https://hex.pm/packages/sqlparser)
+[![Hex](https://img.shields.io/hexpm/v/myproto.svg)](https://hex.pm/packages/myproto)
 
 MySQL Server Protocol in Erlang. This project let you implement the MySQL protocol for your server. Throught a MySQL connection you could send queries or fake a MySQL connection to do a proxy or whatever else.
 
