@@ -1,7 +1,7 @@
 -module(my_request).
 -author('Manuel Rubio <manuel@altenwald.com>').
 
--behaviour(gen_fsm).
+-behaviour(gen_statem).
 
 -define(SERVER, ?MODULE).
 
@@ -46,7 +46,7 @@
             ParseQuery :: boolean()) -> {ok, pid()}.
 
 start(Socket, Id, Handler, ParseQuery) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
+    {ok, Pid} = gen_statem:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
     gen_tcp:controlling_process(Socket, Pid),
     inet:setopts(Socket, [{active, true}]),
     {ok, Pid}.
