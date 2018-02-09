@@ -1,5 +1,5 @@
 {"1.1.0",
-[{<<"neotoma">>,{pkg,<<"neotoma">>,<<"1.7.3">>},0},
+[{<<"neotoma">>,{pkg,<<"neotoma">>,<<"1.7.3">>},1},
  {<<"sqlparser">>,{pkg,<<"sqlparser">>,<<"0.2.0">>},0}]}.
 [
 {pkg_hash,[
