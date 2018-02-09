@@ -1,7 +1,7 @@
 -module(my_request).
 -author('Manuel Rubio <manuel@altenwald.com>').
 
--behaviour(gen_fsm).
+-behaviour(gen_statem).
 
 -define(SERVER, ?MODULE).
 
