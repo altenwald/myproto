@@ -16,7 +16,7 @@ MySQL Server Protocol in Erlang. This project let you implement the MySQL protoc
 
 ### <a name="Requirements">Requirements</a> ###
 
-The system for tests use maps so, you have to use Erlang OTP 19+:
+The system for tests use maps so, you have to use Erlang OTP 19.3+:
 
 | Erlang Version | Support | Notes |
 |:---|:---:|:---|
@@ -32,9 +32,6 @@ The system for tests use maps so, you have to use Erlang OTP 19+:
 | 20.1 | :heavy_check_mark: | |
 | 20.0 | :heavy_check_mark: | |
 | 19.3 | :heavy_check_mark: | Recommended if you use OTP 19 |
-| 19.2 | :heavy_check_mark: | |
-| 19.1 | :heavy_check_mark: | |
-| 19.0 | :heavy_check_mark: | |
 
 
 ### <a name="Usage">Usage</a> ###
