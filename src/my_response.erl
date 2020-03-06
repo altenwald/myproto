@@ -72,7 +72,7 @@ default_reply(#request{info = ?SQL_PARAM(<<"tx_isolation">>, local)},
     },
     {reply, #response{status=?STATUS_OK, info=Info}, State};
 
-default_reply(#request{info = {use, Database}}, Handler, State) ->
+default_reply(#request{command = ?COM_INIT_DB, info = Database}, Handler, State) ->
     {noreply, State1} = Handler:metadata({connect_db, Database}, State),
     {reply,
      #response{status = ?STATUS_OK,
