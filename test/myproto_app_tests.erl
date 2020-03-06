@@ -1,6 +1,6 @@
 -module(myproto_app_tests).
 -author('Manuel Rubio <manuel@altenwald.com>').
--compile([warnings_as_errors, export_all]).
+-compile([warnings_as_errors]).
 
 -include_lib("eunit/include/eunit.hrl").
 

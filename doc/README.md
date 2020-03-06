@@ -2,7 +2,7 @@
 
 # myproto #
 
-Copyright (c) 2013-2017 Altenwald Solutions, S.L.
+Copyright (c) 2013-2020 Altenwald Solutions, S.L.
 
 __Authors:__ "Manuel Rubio" ([`manuel@altenwald.com`](mailto:manuel@altenwald.com)).
 
@@ -16,24 +16,25 @@ MySQL Server Protocol in Erlang. This project let you implement the MySQL protoc
 
 ### <a name="Requirements">Requirements</a> ###
 
-The system for tests use maps so, you have to use Erlang OTP 17+:
+The system for tests use maps so, you have to use Erlang OTP 19+:
 
 | Erlang Version | Support | Notes |
 |:---|:---:|:---|
+| 22.2 | :heavy_check_mark: | Recommended if you use OTP 22 |
+| 22.1 | :heavy_check_mark: | |
+| 22.0 | :heavy_check_mark: | |
+| 21.3 | :heavy_check_mark: | Recommended if you use OTP 21 |
+| 21.2 | :heavy_check_mark: | |
+| 21.1 | :heavy_check_mark: | |
+| 21.0 | :heavy_check_mark: | |
+| 20.3 | :heavy_check_mark: | Recommended if you use OTP 20 |
+| 20.2 | :heavy_check_mark: | |
+| 20.1 | :heavy_check_mark: | |
+| 20.0 | :heavy_check_mark: | |
 | 19.3 | :heavy_check_mark: | Recommended if you use OTP 19 |
 | 19.2 | :heavy_check_mark: | |
 | 19.1 | :heavy_check_mark: | |
 | 19.0 | :heavy_check_mark: | |
-| 18.3 | :heavy_check_mark: | Recommended if you use OTP 18 |
-| 18.2.1 | :heavy_check_mark: | |
-| 18.2 | :heavy_check_mark: | |
-| 18.1 | :heavy_check_mark: | |
-| 18.0 | :heavy_check_mark: | |
-| 17.5 | :heavy_check_mark: | Recommended if you use OTP 17 |
-| 17.4 | :heavy_check_mark: | |
-| 17.3 | :x: | fail in SSL |
-| 17.1 | :heavy_check_mark: | |
-| 17.0 | :heavy_check_mark: | |
 
 
 ### <a name="Usage">Usage</a> ###
@@ -43,7 +44,7 @@ If you want to use, only add this in rebar.config:
 ```erlang
 
   {deps, [
-      {myproto, "0.3.1"}
+      {myproto, "0.4.0"}
   ]}.
 
 ```

@@ -1,7 +1,7 @@
 -module(my_request).
 -author('Manuel Rubio <manuel@altenwald.com>').
 
--behaviour(gen_fsm).
+-behaviour(gen_statem).
 
 -define(SERVER, ?MODULE).
 
@@ -14,17 +14,11 @@
     sha1_hex/1,
     to_hex/1,
 
-    % states
-    auth/2,
-    normal/2,
-
     % FSM callbacks
+    callback_mode/0,
     init/1,
-    handle_sync_event/4,
-    handle_event/3,
-    handle_info/3,
-    terminate/3,
-    code_change/4
+    handle_event/4,
+    terminate/3
 ]).
 
 -record(state, {
@@ -46,7 +40,7 @@
             ParseQuery :: boolean()) -> {ok, pid()}.
 
 start(Socket, Id, Handler, ParseQuery) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
+    {ok, Pid} = gen_statem:start(?MODULE, [Socket, Id, Handler, ParseQuery], []),
     gen_tcp:controlling_process(Socket, Pid),
     inet:setopts(Socket, [{active, true}]),
     {ok, Pid}.
@@ -105,8 +99,11 @@ init([Socket, Id, Handler, ParseQuery]) ->
         handler = Handler,
         parse_query = ParseQuery}}.
 
-auth(#request{info = #user{password = Password} = User},
-     #state{hash = Hash, socket = Socket, handler = Handler} = StateData) ->
+callback_mode() ->
+    handle_event_function.
+
+handle_event(internal, {_Msg, {ok, #request{info = #user{password = Password} = User}, <<>>}},
+             auth, #state{hash = Hash, socket = Socket, handler = Handler} = StateData) ->
     ?DEBUG("Hash=~p; Pass=~p~n", [to_hex(Hash), to_hex(Password)]),
     case Handler:check_pass(User#user{server_hash = Hash}) of
         {ok, Password, HandlerState} ->
@@ -140,13 +137,13 @@ auth(#request{info = #user{password = Password} = User},
             ok = my_response:send_or_reply(Response, Socket),
             gen_tcp:close(Socket),
             {stop, normal, StateData}
-    end.
+    end;
 
-normal(#request{id = Id, info = Info, command = Command} = Request,
-       #state{socket = Socket,
-              handler = Handler,
-              packet = Packet,
-              handler_state = HandlerState} = StateData) ->
+handle_event(internal, {_Msg, {ok, #request{id = Id, info = Info, command = Command} = Request, <<>>}},
+             normal, #state{socket = Socket,
+                            handler = Handler,
+                            packet = Packet,
+                            handler_state = HandlerState} = StateData) ->
     ?DEBUG("Received: ~p~n", [Request]),
     FullPacket = <<Packet/binary, Info/binary>>,
     ParsedRequest = case StateData#state.parse_query andalso
@@ -191,54 +188,39 @@ normal(#request{id = Id, info = Info, command = Command} = Request,
             {stop,
              Reason,
              NewStateData#state{handler_state = NewHandlerState}}
-    end.
+    end;
 
-handle_info({tcp, _Port, Msg}, auth, #state{msg = PrevMsg} = StateData) ->
+handle_event(internal, {_Msg, {ok, #request{continue = true, info = Info} = Request, <<>>}},
+             _StateName, StateData) ->
+    ?DEBUG("Received (partial): ~p~n", [Request]),
+    Packet = StateData#state.packet,
+    {next_state, normal,
+     StateData#state{packet = <<Packet/binary, Info/binary>>}};
+
+handle_event(internal, {Msg, {more, _NumBytes}}, _StateName, StateData) ->
+    ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
+    {next_state, normal, StateData#state{msg = Msg}};
+
+handle_event(info, {tcp, _Port, Msg}, auth, #state{msg = PrevMsg}) ->
     Msg2 = <<PrevMsg/binary, Msg/binary>>,
-    process_packet(Msg2, my_packet:decode_auth(Msg2), auth, StateData);
+    DecMsg2 = my_packet:decode_auth(Msg2),
+    {keep_state_and_data, [{next_event, internal, {Msg2, DecMsg2}}]};
 
-handle_info({tcp, _Port, Msg}, normal, #state{msg = PrevMsg} = StateData) ->
+handle_event(info, {tcp, _Port, Msg}, normal, #state{msg = PrevMsg}) ->
     Msg2 = <<PrevMsg/binary, Msg/binary>>,
-    process_packet(Msg2, my_packet:decode(Msg2), normal, StateData);
+    DecMsg2 = my_packet:decode(Msg2),
+    {keep_state_and_data, [{next_event, internal, {Msg2, DecMsg2}}]};
 
-handle_info({tcp_closed, _Socket}, _StateName, #state{id = Id} = StateData) ->
+handle_event(info, {tcp_closed, _Socket}, _StateName, #state{id = Id} = StateData) ->
     ?INFO_MSG("Connection ID#~w closed~n", [Id]),
     {stop, normal, StateData};
 
-handle_info(Info, _StateName, StateData = #state{socket = Socket}) ->
+handle_event(info, Info, _StateName, StateData = #state{socket = Socket}) ->
     ?ERROR_MSG("unknown message: ~p~n", [Info]),
     gen_tcp:close(Socket),
     {stop, normal, StateData}.
-
-handle_event(_Event, StateName, StateData) ->
-    {next_state, StateName, StateData}.
-
-handle_sync_event(_Event, _From, StateName, StateData) ->
-    {reply, ok, StateName, StateData}.
 
 terminate(Reason, _StateName, #state{handler = Handler,
                                      handler_state = HandlerState}) ->
     Handler:terminate(Reason, HandlerState),
     ok.
-
-code_change(_OldVsn, StateName, StateData, _Extra) ->
-    {ok, StateName, StateData}.
-
-
-process_packet(_, {ok, #request{continue = true, info = Info} = Request, <<>>},
-               _StateName, StateData) ->
-    ?DEBUG("Received (partial): ~p~n", [Request]),
-    Packet = StateData#state.packet,
-    {next_state,
-     normal,
-     StateData#state{packet = <<Packet/binary, Info/binary>>}};
-
-process_packet(Msg, {more, _NumBytes}, _StateName, StateData) ->
-    ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
-    {next_state, normal, StateData#state{msg = Msg}};
-
-process_packet(_Msg, {ok, #request{} = Request, <<>>}, normal, StateData) ->
-    normal(Request, StateData);
-
-process_packet(_Msg, {ok, #request{} = Request, <<>>}, auth, StateData) ->
-    auth(Request, StateData).

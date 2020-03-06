@@ -13,11 +13,8 @@ clean:
 	rm -rf _build
 
 test:
-	${REBAR} do xref, eunit, cover
-	./covertool \
-		-cover _build/test/cover/eunit.coverdata \
-		-appname myproto \
-		-output cobertura.xml
+	${REBAR} do xref, eunit, cover, covertool generate
+	mv _build/test/covertool/myproto.covertool.xml cobertura.xml
 
 shell:
 	${REBAR} shell
