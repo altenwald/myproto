@@ -190,6 +190,10 @@ default_reply(#request{info = #describe{table = #table{name = Table}}},
     Show = #show{type = fields, from = Table, full = false},
     default_reply(#request{info = Show}, Handler, State);
 
+default_reply(#request{command = ?COM_FIELD_LIST, info = Table} = Req, Handler, State) ->
+    Request = Req#request{info = #show{type = fields, from = Table, full = false}},
+    default_reply(Request, Handler, State);
+
 default_reply(#request{info = #show{type = fields, from = Table, full = Full}},
               Handler, State) ->
     {reply, {_DB, Table, Fields}, State1} =

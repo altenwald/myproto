@@ -31,10 +31,10 @@ Add the dependency to the `rebar.config` file:
 ]}.
 ```
 
-Now, you can create the `apps/mydummy/src/mydummy.erl` module:
+Now, you can create the `apps/mydummy/src/my_dummy_handler.erl` module:
 
 ```erlang
--module(mydummy).
+-module(my_dummy_handler).
 -behaviour(gen_myproto).
 
 -include_lib("myproto/include/myproto.hrl").
@@ -45,8 +45,8 @@ Now, you can create the `apps/mydummy/src/mydummy.erl` module:
     db
 }).
 
-check_pass(#user{user=User, server_hash=Hash, password=Password}) ->
-    case my_request:check_clean_pass(User, Hash) of
+check_pass(#user{name = Name, server_hash = Hash, password = Password}) ->
+    case my_request:check_clean_pass(Name, Hash) of
         Password -> {ok, Password, #my{}};
         _ -> {error, <<"Password incorrect!">>}
     end.
@@ -59,7 +59,7 @@ metadata({connect_db, Database}, State) ->
     {noreply, State#my{db = Database}};
 
 metadata(databases, State) ->
-    {reply, [<<"comet">>], State};
+    {reply, [<<"storage">>], State};
 
 metadata(tables, #my{db = <<"storage">>} = State) ->
     {reply, {<<"storage">>, [<<"channels">>, <<"users">>]}, State};
@@ -81,11 +81,9 @@ execute(#request{info =
     {reply, #response{status=?STATUS_OK, info=Info}, State};
 
 execute(#request{command = ?COM_QUIT}, State) ->
-    lager:info("Exiting~n", []),
     {stop, normal, State};
 
 execute(#request{info = #select{}} = Request, State) ->
-    lager:info("Request: ~p~n", [Request]),
     Info = {
         [
             #column{name = <<"Info">>, type=?TYPE_VARCHAR, length=20},
@@ -99,7 +97,6 @@ execute(#request{info = #select{}} = Request, State) ->
     {reply, #response{status=?STATUS_OK, info=Info}, State};
 
 execute(#request{} = Request, State) ->
-    lager:info("Unknown request: ~p", [Request]),
     {reply, default, State}. % Return default reply if you don't know answer on this request
 
 
