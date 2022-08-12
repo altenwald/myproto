@@ -56,7 +56,6 @@ handle_info(timeout, State = #state{lsocket = LSocket,
                                     id = Id,
                                     handler = Handler,
                                     parse_query = ParseQuery}) ->
-    ?DEBUG("Accepting... ~p~n", [Id]),
     case gen_tcp:accept(LSocket, ?TIMEOUT_ACCEPTOR) of
         {ok, Socket} ->
             Res = my_request:start(Socket, Id, Handler, ParseQuery),

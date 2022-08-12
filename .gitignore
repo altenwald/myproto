@@ -10,3 +10,4 @@ logs/
 cobertura.xml
 myproto.coverdata
 _build/
+.vscode

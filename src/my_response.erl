@@ -1,5 +1,6 @@
 -module(my_response).
 -author('Manuel Rubio <manuel@altenwald.com>').
+-compile({no_auto_import,[error/3]}).
 
 -include("myproto.hrl").
 

@@ -2,7 +2,7 @@
 
 # myproto #
 
-Copyright (c) 2013-2020 Altenwald Solutions, S.L.
+Copyright (c) 2013-2022 Altenwald
 
 __Authors:__ "Manuel Rubio" ([`manuel@altenwald.com`](mailto:manuel@altenwald.com)).
 

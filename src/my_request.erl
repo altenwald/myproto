@@ -144,7 +144,6 @@ handle_event(internal, {_Msg, {ok, #request{id = Id, info = Info, command = Comm
                             handler = Handler,
                             packet = Packet,
                             handler_state = HandlerState} = StateData) ->
-    ?DEBUG("Received: ~p~n", [Request]),
     FullPacket = <<Packet/binary, Info/binary>>,
     ParsedRequest = case StateData#state.parse_query andalso
                  Command =:= ?COM_QUERY of
@@ -190,15 +189,13 @@ handle_event(internal, {_Msg, {ok, #request{id = Id, info = Info, command = Comm
              NewStateData#state{handler_state = NewHandlerState}}
     end;
 
-handle_event(internal, {_Msg, {ok, #request{continue = true, info = Info} = Request, <<>>}},
+handle_event(internal, {_Msg, {ok, #request{continue = true, info = Info}, <<>>}},
              _StateName, StateData) ->
-    ?DEBUG("Received (partial): ~p~n", [Request]),
     Packet = StateData#state.packet,
     {next_state, normal,
      StateData#state{packet = <<Packet/binary, Info/binary>>}};
 
 handle_event(internal, {Msg, {more, _NumBytes}}, _StateName, StateData) ->
-    ?DEBUG("Received (partial): bytes remaining = ~w~n", [_NumBytes]),
     {next_state, normal, StateData#state{msg = Msg}};
 
 handle_event(info, {tcp, _Port, Msg}, auth, #state{msg = PrevMsg}) ->
