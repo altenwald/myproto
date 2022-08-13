@@ -3,7 +3,7 @@
 @title myproto
 
 @doc
-<a href="https://travis-ci.org/altenwald/myproto"><img src="https://img.shields.io/travis/altenwald/myproto/master.svg" alt="Build Status"/></a>
+<a href="https://github.com/altenwald/myproto/actions"><img src="https://img.shields.io/github/workflow/status/altenwald/myproto/check" alt="Build Status"/></a>
 <a href='https://codecov.io/gh/altenwald/myproto'><img src='https://img.shields.io/codecov/c/github/altenwald/myproto.svg' alt='Codecov' /></a>
 <a href='https://raw.githubusercontent.com/altenwald/myproto/master/COPYING'><img src='https://img.shields.io/github/license/altenwald/myproto.svg' alt='License: EPL 1.1'/></a>
 <a href='https://hex.pm/packages/myproto'><img src='https://img.shields.io/hexpm/v/myproto.svg' alt='Hex'/></a>

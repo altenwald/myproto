@@ -6,7 +6,7 @@ Copyright (c) 2013-2022 Altenwald
 
 __Authors:__ "Manuel Rubio" ([`manuel@altenwald.com`](mailto:manuel@altenwald.com)).
 
-[![Build Status](https://img.shields.io/travis/altenwald/myproto/master.svg)](https://travis-ci.org/altenwald/myproto)
+[![Build Status](https://img.shields.io/github/workflow/status/altenwald/myproto/check)](https://github.com/altenwald/myproto/actions)
 [![Codecov](https://img.shields.io/codecov/c/github/altenwald/myproto.svg)](https://codecov.io/gh/altenwald/myproto)
 [![License: EPL 1.1](https://img.shields.io/github/license/altenwald/myproto.svg)](https://raw.githubusercontent.com/altenwald/myproto/master/COPYING)
 [![Hex](https://img.shields.io/hexpm/v/myproto.svg)](https://hex.pm/packages/myproto)
